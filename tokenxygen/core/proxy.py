@@ -31,7 +31,7 @@ logger = logging.getLogger("tokenxygen")
 app = FastAPI(
     title="Tokenxygen",
     description="Universal token optimizer for coding agents — save 40-70% on LLM costs",
-    version="0.2.0",
+    version="0.5.0",
 )
 
 # Shared HTTP client for upstream requests

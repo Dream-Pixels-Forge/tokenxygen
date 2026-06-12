@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime
 import os
 from pathlib import Path
 from pydantic_settings import BaseSettings
@@ -9,6 +10,12 @@ from pydantic import Field
 
 
 DATA_DIR = Path(os.environ.get("TOKENDATA_DIR", Path.home() / ".tokenxygen"))
+
+
+def today_start_timestamp() -> float:
+    """Return Unix timestamp for start of today (UTC). Used by analytics and budget."""
+    today = datetime.date.today()
+    return datetime.datetime.combine(today, datetime.time.min).timestamp()
 
 
 # Cache defaults

@@ -9,7 +9,7 @@ from typing import Optional
 
 import logging
 
-from tokenxygen.config import settings
+from tokenxygen.config import settings, today_start_timestamp
 from tokenxygen.core import count_tokens, estimate_cost_usd
 
 logger = logging.getLogger("tokenxygen.analytics")
@@ -87,7 +87,7 @@ class Analytics:
 
     def today_summary(self) -> dict:
         """Get today's usage summary."""
-        today_start = _today_start()
+        today_start = today_start_timestamp()
         with sqlite3.connect(self.db_path) as conn:
             row = conn.execute(
                 """
@@ -203,10 +203,7 @@ class Analytics:
             ]
 
 
-def _today_start() -> float:
-    import datetime
-    today = datetime.date.today()
-    return datetime.datetime.combine(today, datetime.time.min).timestamp()
+
 
 
 # Lazy singleton

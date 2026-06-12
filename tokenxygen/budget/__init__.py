@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
 
-from tokenxygen.config import settings
+from tokenxygen.config import settings, today_start_timestamp
 
 
 class BudgetAction(Enum):
@@ -67,7 +67,7 @@ class BudgetGuard:
     def record_cost(self, cost_usd: float) -> None:
         """Record a cost to today's spending."""
         now = time.time()
-        today_start = _today_start()
+        today_start = today_start_timestamp()
 
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
@@ -81,7 +81,7 @@ class BudgetGuard:
 
     def get_daily_breakdown(self) -> dict:
         """Get detailed daily spending breakdown."""
-        today_start = _today_start()
+        today_start = today_start_timestamp()
         with sqlite3.connect(self.db_path) as conn:
             row = conn.execute(
                 """
@@ -113,7 +113,7 @@ class BudgetGuard:
 
     def _get_today_spent(self) -> float:
         """Get total amount spent today."""
-        today_start = _today_start()
+        today_start = today_start_timestamp()
         with sqlite3.connect(self.db_path) as conn:
             row = conn.execute(
                 "SELECT SUM(cost_usd) FROM budget_ledger WHERE day_start = ?",
@@ -149,10 +149,7 @@ class BudgetGuard:
         return BudgetAction.PASS, "within_budget"
 
 
-def _today_start() -> float:
-    import datetime
-    today = datetime.date.today()
-    return datetime.datetime.combine(today, datetime.time.min).timestamp()
+
 
 
 def _ensure_budget_table(db_path: str) -> None:
