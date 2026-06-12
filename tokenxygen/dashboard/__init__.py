@@ -9,13 +9,21 @@ from fastapi.responses import HTMLResponse
 
 DASHBOARD_HTML = Path(__file__).parent / "index.html"
 
+
+def _read_dashboard_html() -> str:
+    """Read dashboard HTML with error handling."""
+    try:
+        return DASHBOARD_HTML.read_text()
+    except FileNotFoundError:
+        return """<!DOCTYPE html><html><body><h1>Dashboard</h1><p>Dashboard HTML file not found.</p></body></html>"""
+
 dashboard_app = FastAPI(title="TokenSaver Dashboard")
 
 
 @dashboard_app.get("/", response_class=HTMLResponse)
 async def dashboard():
     """Serve the dashboard SPA."""
-    return DASHBOARD_HTML.read_text()
+    return _read_dashboard_html()
 
 
 @dashboard_app.get("/api/stats")
