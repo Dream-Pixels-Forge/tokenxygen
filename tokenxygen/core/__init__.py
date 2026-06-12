@@ -33,8 +33,8 @@ def get_encoding(model: str = "default") -> tiktoken.Encoding:
 
 def count_tokens(text: str, model: str = "default") -> int:
     """Count tokens in a string with caching."""
-    # Cache lookup for repeated text
-    cache_key = hashlib.md5((model + text[:1000]).encode()).hexdigest()
+    # Use fast hash for cache key (text[:1000] is enough for most cases)
+    cache_key = hashlib.sha1((model + text[:1000]).encode()).hexdigest()[:16]
     if cache_key in _TOKEN_CACHE:
         return _TOKEN_CACHE[cache_key]
     
