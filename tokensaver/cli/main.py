@@ -447,5 +447,53 @@ def cache_stats():
     )
 
 
+@cli.command()
+def failover():
+    """Show failover pool status."""
+    from tokensaver.providers.failover import get_pool
+
+    pool = get_pool()
+    stats = pool.get_stats()
+
+    table = Table(title="🔄 Failover Pool", box=box.ROUNDED)
+    table.add_column("Provider", style="cyan")
+    table.add_column("Status")
+    table.add_column("Requests", justify="right")
+    table.add_column("Failures", justify="right")
+    table.add_column("Avg Latency", justify="right")
+    table.add_column("Failure Rate", justify="right")
+
+    for provider, data in stats.items():
+        status = "[green]✓ UP[/]" if data["available"] else "[red]✗ DOWN[/]"
+        fail_rate = f"{data['failure_rate']:.1%}"
+        table.add_row(
+            provider,
+            status,
+            str(data["total_requests"]),
+            str(data["total_failures"]),
+            f"{data['avg_latency_ms']:.0f}ms",
+            fail_rate,
+        )
+
+    console.print(table)
+
+
+@cli.command()
+@click.argument("text")
+def deep_compress(text: str):
+    """Show advanced LLMLingua-2 compression results."""
+    from tokensaver.compress.advanced import llmlingua
+    from tokensaver.core import count_tokens
+
+    compressed, stats = llmlingua.compress(text, compression_ratio=0.5)
+
+    console.print(f"Method:     [cyan]{stats.method}[/]")
+    console.print(f"Original:   [dim]{stats.original_tokens} tokens[/]")
+    console.print(f"Compressed: [green]{stats.compressed_tokens} tokens[/]")
+    console.print(f"Saved:      [bold green]{stats.tokens_removed} tokens ({stats.savings_pct:.1f}%)[/]")
+    console.print(f"\n[dim]Compressed text:[/]")
+    console.print(compressed[:500] + ("..." if len(compressed) > 500 else ""))
+
+
 if __name__ == "__main__":
     cli()

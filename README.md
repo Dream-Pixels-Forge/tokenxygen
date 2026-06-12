@@ -35,10 +35,11 @@ TokenSaver applies multiple optimization strategies in order:
 |---|----------|-------------|-----------------|
 | 1 | **Semantic Cache** | Reuse identical/similar responses | 30-60% |
 | 2 | **File Deduplication** | Remove repeated file contents | 10-30% |
-| 3 | **Comment Stripping** | Remove code comments from context | 5-15% |
-| 4 | **Plugin Strategies** | Custom compression (diffs, imports, tool outputs) | 5-20% |
+| 3 | **Plugin Strategies** | Custom compression (diffs, imports, tool outputs) | 5-20% |
+| 4 | **LLMLingua-2** | Token-level compression (when installed) | 40-60% |
 | 5 | **Smart Routing** | Send simple queries to cheap models | 40-70% |
 | 6 | **Budget Guards** | Enforce daily limits, auto-downgrade | Variable |
+| 7 | **Failover** | Automatic provider switching on failure | Availability |
 
 Combined, these typically save **40-70%** on token costs without noticeable quality loss.
 
@@ -62,6 +63,9 @@ Features:
 ```bash
 # Basic install (core features)
 pip install tokensaver
+
+# With LLMLingua-2 for deeper compression
+pip install tokensaver[llmlingua]
 
 # Full install (all features)
 pip install tokensaver[full]
@@ -88,6 +92,9 @@ tokensaver tokens "Hello, world!"
 # Show compression results
 tokensaver compress "your code or text here"
 
+# Show LLMLingua-2 compression
+tokensaver deep-compress "your long text here"
+
 # List available models and costs
 tokensaver providers
 
@@ -109,6 +116,9 @@ tokensaver cache-stats
 # List loaded plugins
 tokensaver plugins
 
+# Show failover pool status
+tokensaver failover
+
 # Get setup instructions
 tokensaver setup
 
@@ -121,16 +131,31 @@ tokensaver reset --clear-cache
 
 ## 🔌 Multi-Provider Support
 
-TokenSaver supports multiple LLM providers:
+TokenSaver supports multiple LLM providers with automatic failover:
 
-| Provider | Models | Cost |
-|----------|--------|------|
-| **OpenAI** | GPT-4o, GPT-4o-mini, GPT-4-turbo | $0.15-30/1K tokens |
-| **Anthropic** | Claude 3.5 Sonnet, Claude 3 Haiku, Claude 3 Opus | $0.25-75/1K tokens |
-| **Google** | Gemini 1.5 Pro, Gemini 1.5 Flash | $0.075-10.5/1K tokens |
-| **Ollama** | Llama 3.1, CodeLlama, DeepSeek Coder | **Free** (local) |
+| Provider | Models | Cost | Status |
+|----------|--------|------|--------|
+| **OpenAI** | GPT-4o, GPT-4o-mini, GPT-4-turbo | $0.15-30/1K tokens | ✓ |
+| **Anthropic** | Claude 3.5 Sonnet, Claude 3 Haiku, Claude 3 Opus | $0.25-75/1K tokens | ✓ |
+| **Google** | Gemini 1.5 Pro, Gemini 1.5 Flash | $0.075-10.5/1K tokens | ✓ |
+| **Ollama** | Llama 3.1, CodeLlama, DeepSeek Coder | **Free** (local) | ✓ |
 
-The smart router automatically picks the cheapest model for each request based on complexity.
+### Failover & Load Balancing
+
+```python
+from tokensaver.providers.failover import ProviderPool, LoadBalanceStrategy
+
+# Configure pool with cost-first routing
+pool = ProviderPool(
+    primary_provider=Provider.OPENAI,
+    fallback_providers=[Provider.ANTHROPIC, Provider.OLLAMA],
+    config=FailoverConfig(strategy=LoadBalanceStrategy.COST_FIRST),
+)
+
+# Automatic failover on failure
+# Circuit breaker: 3 failures → mark unavailable
+# Latency tracking: prefer fastest provider
+```
 
 ## 🧩 Plugin System
 
@@ -267,8 +292,8 @@ tokensaver serve --reload
 - [x] **v0.1** — Core proxy, cache, compression, analytics
 - [x] **v0.2** — Smart routing, budget guards, web dashboard
 - [x] **v0.3** — Multi-provider support, plugin system
-- [ ] **v0.4** — LLMLingua-2 integration for deeper compression
-- [ ] **v0.5** — Multi-provider automatic failover + load balancing
+- [x] **v0.4** — LLMLingua-2 compression, failover, load balancing
+- [ ] **v0.5** — Production hardening (logging, metrics, alerts)
 - [ ] **v1.0** — Production ready
 
 ## 📄 License
