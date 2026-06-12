@@ -217,6 +217,33 @@ async def _proxy_request(
     return response
 
 
+def _validate_upstream_url(url: str) -> bool:
+    """Validate upstream URL to prevent SSRF."""
+    from urllib.parse import urlparse
+    parsed = urlparse(url)
+    
+    # Block local/private IPs
+    blocked_hosts = ("localhost", "127.0.0.1", "0.0.0.0", "::1", "[::1]")
+    if parsed.hostname in blocked_hosts:
+        return False
+    
+    # Block private IP ranges
+    if parsed.hostname:
+        import ipaddress
+        try:
+            ip = ipaddress.ip_address(parsed.hostname)
+            if ip.is_private or ip.is_loopback or ip.is_link_local:
+                return False
+        except ValueError:
+            pass  # hostname is not an IP
+    
+    # Only allow http/https
+    if parsed.scheme not in ("http", "https"):
+        return False
+    
+    return True
+
+
 async def _forward_raw(
     path: str,
     method: str,
@@ -227,6 +254,13 @@ async def _forward_raw(
     """Forward raw request to upstream."""
     client = await get_client()
     upstream = f"{settings.proxy.upstream_base_url}/{path}"
+    
+    # Validate upstream URL to prevent SSRF
+    if not _validate_upstream_url(upstream):
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Invalid upstream URL"},
+        )
 
     # Filter headers — only forward relevant ones
     forward_headers = {}
