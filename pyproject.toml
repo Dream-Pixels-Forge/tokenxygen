@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tokensaver"
+version = "0.1.0"
+description = "Universal token optimizer for coding agents — save 40-70% on LLM costs"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [{ name = "TokenSaver" }]
+keywords = ["llm", "tokens", "optimizer", "coding-agent", "claude", "cursor", "cost"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.29.0",
+    "httpx>=0.27.0",
+    "tiktoken>=0.7.0",
+    "rich>=13.7.0",
+    "click>=8.1.0",
+    "pydantic>=2.6.0",
+    "pydantic-settings>=2.2.0",
+]
+
+[project.optional-dependencies]
+cache = ["chromadb>=0.5.0"]
+compress = ["sentence-transformers>=2.5.0"]
+full = ["chromadb>=0.5.0", "sentence-transformers>=2.5.0"]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23.0", "ruff>=0.4.0"]
+
+[project.scripts]
+tokensaver = "tokensaver.cli.main:cli"
+
+[tool.setuptools.packages.find]
+include = ["tokensaver*"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
