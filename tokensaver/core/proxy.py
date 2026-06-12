@@ -17,6 +17,8 @@ from tokensaver.cache import _get_cache
 from tokensaver.compress import PromptCompressor, compressor
 from tokensaver.config import settings
 from tokensaver.core import count_tokens, estimate_cost_usd
+from tokensaver.logging import RequestLogger, setup_logging
+from tokensaver.metrics import metrics
 from tokensaver.router import router, RoutingDecision
 
 logger = logging.getLogger("tokensaver")
@@ -195,6 +197,18 @@ async def _proxy_request(
     response.headers["X-TokenSaver-Saved"] = str(original_tokens - optimized_tokens)
     response.headers["X-TokenSaver-Strategies"] = ",".join(strategies) if strategies else "none"
 
+    # Record metrics
+    duration_ms = (time.time() - start) * 1000
+    metrics.record_request(
+        original_tokens=original_tokens,
+        optimized_tokens=optimized_tokens,
+        duration_ms=duration_ms,
+        cache_hit=False,
+        strategies=strategies,
+        model=model,
+        cost_saved_usd=cost_before - cost_after,
+    )
+
     return response
 
 
@@ -325,4 +339,27 @@ async def clear_cache():
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "version": "0.2.0"}
+    return {"status": "ok", "version": "0.5.0"}
+
+
+@app.get("/metrics")
+async def prometheus_metrics():
+    """Prometheus metrics endpoint."""
+    from fastapi.responses import PlainTextResponse
+
+    # Update gauge metrics
+    cache = _get_cache()
+    cache_stats = cache.stats()
+    metrics.gauge("tokensaver_cache_entries", cache_stats["entries"])
+    metrics.gauge("tokensaver_cache_total_hits", cache_stats["total_hits"])
+
+    return PlainTextResponse(
+        content=metrics.to_prometheus(),
+        media_type="text/plain; version=0.0.4; charset=utf-8",
+    )
+
+
+@app.get("/metrics/json")
+async def json_metrics():
+    """JSON metrics endpoint (for dashboard)."""
+    return metrics.to_dict()

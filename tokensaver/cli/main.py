@@ -28,7 +28,9 @@ def cli():
 @click.option("--port", default=8420, type=int, help="Bind port")
 @click.option("--upstream", default=None, help="Override upstream API base URL")
 @click.option("--dashboard-port", default=8421, type=int, help="Dashboard port (0 to disable)")
-def serve(host: str, port: int, upstream: str | None, dashboard_port: int):
+@click.option("--json-logs", is_flag=True, help="Use JSON log format")
+@click.option("--log-level", default="INFO", help="Log level")
+def serve(host: str, port: int, upstream: str | None, dashboard_port: int, json_logs: bool, log_level: str):
     """Start the TokenSaver proxy server."""
     from tokensaver.config import settings
 
@@ -36,6 +38,10 @@ def serve(host: str, port: int, upstream: str | None, dashboard_port: int):
         settings.proxy.upstream_base_url = upstream
 
     settings.ensure_dirs()
+
+    # Setup logging
+    from tokensaver.logging import setup_logging
+    setup_logging(level=log_level, json_format=json_logs)
 
     console.print(
         Panel(
@@ -493,6 +499,44 @@ def deep_compress(text: str):
     console.print(f"Saved:      [bold green]{stats.tokens_removed} tokens ({stats.savings_pct:.1f}%)[/]")
     console.print(f"\n[dim]Compressed text:[/]")
     console.print(compressed[:500] + ("..." if len(compressed) > 500 else ""))
+
+
+@cli.command()
+def metrics_cmd():
+    """Show current metrics."""
+    from tokensaver.metrics import metrics
+
+    data = metrics.to_dict()
+
+    console.print("[bold]📊 Metrics[/]\n")
+
+    # Counters
+    counters_table = Table(title="Counters", box=box.ROUNDED)
+    counters_table.add_column("Metric", style="cyan")
+    counters_table.add_column("Value", justify="right", style="green")
+
+    for name, value in sorted(data.get("counters", {}).items()):
+        counters_table.add_row(name, str(int(value)))
+
+    console.print(counters_table)
+    console.print()
+
+    # Histograms
+    hist_table = Table(title="Histograms", box=box.ROUNDED)
+    hist_table.add_column("Metric", style="cyan")
+    hist_table.add_column("Count", justify="right")
+    hist_table.add_column("Total", justify="right")
+    hist_table.add_column("Avg", justify="right", style="green")
+
+    for name, hist in sorted(data.get("histograms", {}).items()):
+        hist_table.add_row(
+            name,
+            str(hist["count"]),
+            f"{hist['total']:.2f}",
+            f"{hist['avg']:.2f}",
+        )
+
+    console.print(hist_table)
 
 
 if __name__ == "__main__":
