@@ -17,6 +17,9 @@ from dataclasses import dataclass, field
 from tokenxygen.config import settings
 from tokenxygen.core import count_tokens
 
+# Minimum token savings to report a strategy as effective
+MIN_SAVINGS_THRESHOLD = 10
+
 
 @dataclass
 class CompressionResult:

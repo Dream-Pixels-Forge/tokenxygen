@@ -16,13 +16,18 @@ from typing import Any, Callable
 logger = logging.getLogger("tokenxygen.plugins")
 
 
+class MessageDict(dict[str, Any]):
+    """Typed dict for chat messages."""
+    pass
+
+
 @dataclass
 class StrategyResult:
     """Result from a compression strategy."""
 
     saved_tokens: int
     details: str = ""
-    metadata: dict = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class CompressionStrategy(ABC):
@@ -31,11 +36,12 @@ class CompressionStrategy(ABC):
     name: str = "unnamed"
     description: str = ""
     priority: int = 50  # Lower = runs first
+    min_tokens: int = 0  # Skip if fewer tokens
 
     @abstractmethod
     def apply(
-        self, messages: list[dict], token_count_fn: Callable[[str], int]
-    ) -> tuple[list[dict], StrategyResult]:
+        self, messages: list[dict[str, Any]], token_count_fn: Callable[[str], int]
+    ) -> tuple[list[dict[str, Any]], StrategyResult]:
         """Apply the strategy to messages.
 
         Args:
@@ -47,9 +53,9 @@ class CompressionStrategy(ABC):
         """
         ...
 
-    def should_run(self, messages: list[dict], token_count: int) -> bool:
+    def should_run(self, messages: list[dict[str, Any]], token_count: int) -> bool:
         """Override to conditionally skip this strategy."""
-        return True
+        return token_count >= self.min_tokens
 
 
 class PluginRegistry:

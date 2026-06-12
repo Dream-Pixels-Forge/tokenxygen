@@ -8,6 +8,8 @@ import tiktoken
 
 # Cache encodings per model family
 _ENCODING_CACHE: dict[str, tiktoken.Encoding] = {}
+_TOKEN_CACHE_MAX = 1024
+_TOKEN_CACHE: dict[str, int] = {}
 
 MODEL_TO_ENCODING: dict[str, str] = {
     "gpt-4o": "o200k_base",
@@ -30,9 +32,21 @@ def get_encoding(model: str = "default") -> tiktoken.Encoding:
 
 
 def count_tokens(text: str, model: str = "default") -> int:
-    """Count tokens in a string."""
+    """Count tokens in a string with caching."""
+    # Cache lookup for repeated text
+    cache_key = hashlib.md5((model + text[:1000]).encode()).hexdigest()
+    if cache_key in _TOKEN_CACHE:
+        return _TOKEN_CACHE[cache_key]
+    
     enc = get_encoding(model)
-    return len(enc.encode(text))
+    count = len(enc.encode(text))
+    
+    # Simple LRU: clear if full
+    if len(_TOKEN_CACHE) >= _TOKEN_CACHE_MAX:
+        _TOKEN_CACHE.clear()
+    _TOKEN_CACHE[cache_key] = count
+    
+    return count
 
 
 def count_message_tokens(messages: list[dict], model: str = "default") -> int:
