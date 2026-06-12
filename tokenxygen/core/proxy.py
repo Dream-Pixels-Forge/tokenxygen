@@ -21,7 +21,9 @@ from tokenxygen.logging import RequestLogger, setup_logging
 from tokenxygen.metrics import metrics
 from tokenxygen.router import router, RoutingDecision
 
-# Simple in-memory rate limiter
+# Thread-safe in-memory rate limiter
+import threading
+_rate_limit_lock = threading.Lock()
 _rate_limit_store: dict[str, list[float]] = {}
 RATE_LIMIT_REQUESTS = 100  # per minute
 RATE_LIMIT_WINDOW = 60.0  # seconds
@@ -413,20 +415,21 @@ def _check_rate_limit(client_ip: str) -> bool:
     import time
     now = time.time()
     
-    if client_ip not in _rate_limit_store:
-        _rate_limit_store[client_ip] = []
-    
-    # Remove old entries
-    _rate_limit_store[client_ip] = [
-        t for t in _rate_limit_store[client_ip]
-        if now - t < RATE_LIMIT_WINDOW
-    ]
-    
-    if len(_rate_limit_store[client_ip]) >= RATE_LIMIT_REQUESTS:
-        return False
-    
-    _rate_limit_store[client_ip].append(now)
-    return True
+    with _rate_limit_lock:
+        if client_ip not in _rate_limit_store:
+            _rate_limit_store[client_ip] = []
+        
+        # Remove old entries
+        _rate_limit_store[client_ip] = [
+            t for t in _rate_limit_store[client_ip]
+            if now - t < RATE_LIMIT_WINDOW
+        ]
+        
+        if len(_rate_limit_store[client_ip]) >= RATE_LIMIT_REQUESTS:
+            return False
+        
+        _rate_limit_store[client_ip].append(now)
+        return True
 
 
 @app.get("/health")
