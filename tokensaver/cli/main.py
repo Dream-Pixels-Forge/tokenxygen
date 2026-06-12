@@ -315,5 +315,137 @@ def compress(text: str):
             console.print(f"  • {r.strategy}: {r.saved_tokens} tokens saved")
 
 
+@cli.command()
+def providers():
+    """List available models and providers."""
+    from tokensaver.providers import MODEL_REGISTRY, Provider
+
+    table = Table(title="🔌 Available Models", box=box.ROUNDED)
+    table.add_column("Model", style="cyan")
+    table.add_column("Provider", style="purple")
+    table.add_column("Input $/1K", justify="right")
+    table.add_column("Output $/1K", justify="right")
+    table.add_column("Context", justify="right")
+
+    for name, config in sorted(MODEL_REGISTRY.items()):
+        table.add_row(
+            name,
+            config.provider.value,
+            f"${config.cost_per_1k_input:.3f}",
+            f"${config.cost_per_1k_output:.3f}",
+            f"{config.max_context // 1000}K",
+        )
+
+    console.print(table)
+
+
+@cli.command()
+def plugins():
+    """List loaded compression plugins."""
+    from tokensaver.plugins import registry
+
+    strategies = registry.get_all()
+
+    if not strategies:
+        console.print("[dim]No plugins loaded.[/]")
+        return
+
+    table = Table(title="🧩 Compression Plugins", box=box.ROUNDED)
+    table.add_column("Name", style="cyan")
+    table.add_column("Priority", justify="right")
+    table.add_column("Description")
+
+    for s in strategies:
+        table.add_row(s.name, str(s.priority), s.description)
+
+    console.print(table)
+
+
+@cli.command()
+@click.argument("model_a")
+@click.argument("model_b")
+@click.option("--tokens", "token_count", default=1000, type=int, help="Token count to compare")
+def compare(model_a: str, model_b: str, token_count: int):
+    """Compare cost between two models."""
+    from tokensaver.providers import MODEL_REGISTRY, get_cheapest_provider
+
+    a = MODEL_REGISTRY.get(model_a)
+    b = MODEL_REGISTRY.get(model_b)
+
+    if not a:
+        console.print(f"[red]Unknown model: {model_a}[/]")
+        return
+    if not b:
+        console.print(f"[red]Unknown model: {model_b}[/]")
+        return
+
+    cost_a = a.cost_per_token_input * token_count
+    cost_b = b.cost_per_token_input * token_count
+
+    cheaper = model_a if cost_a < cost_b else model_b
+    savings = abs(cost_a - cost_b)
+
+    table = Table(title=f"💰 Cost Comparison ({token_count:,} tokens)", box=box.ROUNDED)
+    table.add_column("Model", style="cyan")
+    table.add_column("Provider")
+    table.add_column("Cost", justify="right", style="green")
+    table.add_column("")
+
+    table.add_row(model_a, a.provider.value, f"${cost_a:.6f}", "← CHEAPER" if cheaper == model_a else "")
+    table.add_row(model_b, b.provider.value, f"${cost_b:.6f}", "← CHEAPER" if cheaper == model_b else "")
+    table.add_row("", "", "", "")
+    table.add_row("Savings", "", f"${savings:.6f}", f"{((savings / max(cost_a, cost_b)) * 100):.1f}%" if max(cost_a, cost_b) > 0 else "")
+
+    console.print(table)
+
+
+@cli.command()
+def cheapest():
+    """Show cheapest model for common token counts."""
+    from tokensaver.providers import get_cheapest_provider
+
+    console.print("[bold]💸 Cheapest Models by Context Size[/]\n")
+
+    table = Table(box=box.ROUNDED)
+    table.add_column("Tokens", style="cyan", justify="right")
+    table.add_column("Best Model", style="green")
+    table.add_column("Provider")
+    table.add_column("Cost", justify="right")
+
+    for token_count in [100, 500, 1000, 2000, 5000, 10000, 50000]:
+        provider, model, cost = get_cheapest_provider(token_count)
+        table.add_row(
+            f"{token_count:,}",
+            model,
+            provider.value,
+            f"${cost:.6f}",
+        )
+
+    console.print(table)
+
+
+@cli.command()
+def cache_stats():
+    """Show detailed cache statistics."""
+    from tokensaver.cache import _get_cache
+    from tokensaver.config import settings as _settings
+
+    cache = _get_cache()
+    stats = cache.stats()
+
+    console.print(
+        Panel(
+            f"[bold]Entries:[/]     {stats['entries']:,}\n"
+            f"[bold]Total Hits:[/]  {stats['total_hits']:,}\n"
+            f"[bold]Tokens Saved:[/] {stats['tokens_saved']:,}\n\n"
+            f"[dim]Cache TTL: {_settings.cache.ttl_seconds // 3600}h | "
+            f"Max: {_settings.cache.max_entries:,} entries | "
+            f"Threshold: {_settings.cache.similarity_threshold}[/]",
+            title="💾 Cache Statistics",
+            border_style="cyan",
+        )
+    )
+
+
 if __name__ == "__main__":
     cli()

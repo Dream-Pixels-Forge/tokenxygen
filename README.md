@@ -29,15 +29,16 @@ That's it. Tokens are optimized automatically.
 
 ## 🔧 How It Works
 
-TokenSaver applies 5 optimization strategies in order:
+TokenSaver applies multiple optimization strategies in order:
 
 | # | Strategy | What It Does | Typical Savings |
 |---|----------|-------------|-----------------|
 | 1 | **Semantic Cache** | Reuse identical/similar responses | 30-60% |
 | 2 | **File Deduplication** | Remove repeated file contents | 10-30% |
 | 3 | **Comment Stripping** | Remove code comments from context | 5-15% |
-| 4 | **Smart Routing** | Send simple queries to cheap models | 40-70% |
-| 5 | **Budget Guards** | Enforce daily limits, auto-downgrade | Variable |
+| 4 | **Plugin Strategies** | Custom compression (diffs, imports, tool outputs) | 5-20% |
+| 5 | **Smart Routing** | Send simple queries to cheap models | 40-70% |
+| 6 | **Budget Guards** | Enforce daily limits, auto-downgrade | Variable |
 
 Combined, these typically save **40-70%** on token costs without noticeable quality loss.
 
@@ -87,11 +88,26 @@ tokensaver tokens "Hello, world!"
 # Show compression results
 tokensaver compress "your code or text here"
 
+# List available models and costs
+tokensaver providers
+
+# Compare cost between two models
+tokensaver compare gpt-4o gpt-4o-mini --tokens 5000
+
+# Show cheapest model for different sizes
+tokensaver cheapest
+
 # Set budget limit
 tokensaver budget 20.00
 
 # Check budget status
 tokensaver budget-status
+
+# Cache statistics
+tokensaver cache-stats
+
+# List loaded plugins
+tokensaver plugins
 
 # Get setup instructions
 tokensaver setup
@@ -103,18 +119,60 @@ eval "$(tokensaver env)"
 tokensaver reset --clear-cache
 ```
 
+## 🔌 Multi-Provider Support
+
+TokenSaver supports multiple LLM providers:
+
+| Provider | Models | Cost |
+|----------|--------|------|
+| **OpenAI** | GPT-4o, GPT-4o-mini, GPT-4-turbo | $0.15-30/1K tokens |
+| **Anthropic** | Claude 3.5 Sonnet, Claude 3 Haiku, Claude 3 Opus | $0.25-75/1K tokens |
+| **Google** | Gemini 1.5 Pro, Gemini 1.5 Flash | $0.075-10.5/1K tokens |
+| **Ollama** | Llama 3.1, CodeLlama, DeepSeek Coder | **Free** (local) |
+
+The smart router automatically picks the cheapest model for each request based on complexity.
+
+## 🧩 Plugin System
+
+Custom compression strategies can be added as plugins:
+
+```python
+# my_plugin.py
+from tokensaver.plugins import CompressionStrategy, StrategyResult
+
+class MyStrategy(CompressionStrategy):
+    name = "my_custom"
+    description = "My custom compression"
+    priority = 40  # Lower = runs first
+
+    def apply(self, messages, token_count_fn):
+        # Your compression logic
+        return messages, StrategyResult(saved_tokens=0, details="done")
+```
+
+Built-in plugins:
+- `dedup_tool_outputs` — Remove duplicate tool/function outputs
+- `compress_diffs` — Compress large unified diffs
+- `summarize_imports` — Summarize long import blocks
+
+## 🛡️ Budget Guards
+
+Automatic budget protection:
+
+| Utilization | Action | Effect |
+|-------------|--------|--------|
+| < 80% | PASS | No changes |
+| 80-95% | DOWNGRADE | Route to cheaper model |
+| 95-100% | AGGRESSIVE_COMPRESS | Maximum compression |
+| > 100% | BLOCK | Return 429 error |
+
 ## 🧩 Integration Examples
 
 ### Claude Code
 
 ```bash
-# Option 1: env var
 export OPENAI_BASE_URL=http://127.0.0.1:8420/v1
 export OPENAI_API_KEY=your-key
-claude
-
-# Option 2: use tokensaver env
-eval "$(tokensaver env)"
 claude
 ```
 
@@ -140,15 +198,6 @@ response = client.chat.completions.create(
 )
 ```
 
-### cURL
-
-```bash
-curl http://127.0.0.1:8420/v1/chat/completions \
-  -H "Authorization: Bearer your-key" \
-  -H "Content-Type: application/json" \
-  -d '{"model":"gpt-4o","messages":[{"role":"user","content":"Hello!"}]}'
-```
-
 ## 📊 Monitoring
 
 Every optimized response includes headers:
@@ -157,7 +206,7 @@ Every optimized response includes headers:
 X-TokenSaver-Original-Tokens: 12450
 X-TokenSaver-Optimized-Tokens: 4320
 X-TokenSaver-Saved: 8130
-X-TokenSaver-Strategies: file_dedup,comment_strip
+X-TokenSaver-Strategies: file_dedup,plugin:compress_diffs
 ```
 
 API endpoints:
@@ -199,28 +248,6 @@ settings.router.enabled = True
 settings.budget.daily_limit_usd = 20.0
 ```
 
-## 🧠 Smart Router
-
-The router classifies prompts by complexity and routes to the cheapest capable model:
-
-| Tier | Prompt Type | Example | Routes To |
-|------|-------------|---------|-----------|
-| SIMPLE | Greetings, yes/no | "Hello!", "Yes" | gpt-4o-mini |
-| MEDIUM | Code questions, explanations | "How does X work?" | gpt-4o-mini |
-| COMPLEX | Architecture, security | "Design system for..." | gpt-4o |
-| EXPERT | Multi-step, critical | "Audit this for..." | gpt-4o |
-
-## 🛡️ Budget Guards
-
-Automatic budget protection:
-
-| Utilization | Action | Effect |
-|-------------|--------|--------|
-| < 80% | PASS | No changes |
-| 80-95% | DOWNGRADE | Route to cheaper model |
-| 95-100% | AGGRESSIVE_COMPRESS | Maximum compression |
-| > 100% | BLOCK | Return 429 error |
-
 ## 🧪 Development
 
 ```bash
@@ -239,9 +266,9 @@ tokensaver serve --reload
 
 - [x] **v0.1** — Core proxy, cache, compression, analytics
 - [x] **v0.2** — Smart routing, budget guards, web dashboard
-- [ ] **v0.3** — LLMLingua-2 integration for deeper compression
-- [ ] **v0.4** — Plugin system for custom strategies
-- [ ] **v0.5** — Multi-provider support (Anthropic, Google, Ollama)
+- [x] **v0.3** — Multi-provider support, plugin system
+- [ ] **v0.4** — LLMLingua-2 integration for deeper compression
+- [ ] **v0.5** — Multi-provider automatic failover + load balancing
 - [ ] **v1.0** — Production ready
 
 ## 📄 License

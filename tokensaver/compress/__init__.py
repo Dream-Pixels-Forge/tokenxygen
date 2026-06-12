@@ -10,6 +10,7 @@ Strategies:
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
 
@@ -78,6 +79,26 @@ class PromptCompressor:
         compressed, r = self._truncate_context(compressed, max_tokens, model)
         if r:
             results.append(r)
+
+        # Strategy 6: Plugin strategies
+        try:
+            from tokensaver.plugins import registry as plugin_registry
+            token_count_fn = lambda text: count_tokens(text, model)
+            for strategy in plugin_registry.get_enabled(compressed, count_tokens(json.dumps(compressed), model)):
+                try:
+                    compressed, plugin_result = strategy.apply(compressed, token_count_fn)
+                    if plugin_result.saved_tokens > 0:
+                        results.append(CompressionResult(
+                            original_tokens=0,
+                            compressed_tokens=-plugin_result.saved_tokens,
+                            strategy=f"plugin:{strategy.name}",
+                            details=[plugin_result.details],
+                        ))
+                except Exception as e:
+                    import logging
+                    logging.getLogger("tokensaver").warning("Plugin %s failed: %s", strategy.name, e)
+        except ImportError:
+            pass
 
         return compressed, results
 
