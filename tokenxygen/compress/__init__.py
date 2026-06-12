@@ -86,7 +86,8 @@ class PromptCompressor:
         # Strategy 6: Plugin strategies
         try:
             from tokenxygen.plugins import registry as plugin_registry
-            token_count_fn = lambda text: count_tokens(text, model)
+            def token_count_fn(text: str) -> int:
+                return count_tokens(text, model)
             for strategy in plugin_registry.get_enabled(compressed, count_tokens(json.dumps(compressed), model)):
                 try:
                     compressed, plugin_result = strategy.apply(compressed, token_count_fn)
