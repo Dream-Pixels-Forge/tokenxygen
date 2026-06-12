@@ -11,13 +11,19 @@ from pydantic import Field
 DATA_DIR = Path(os.environ.get("TOKENDATA_DIR", Path.home() / ".tokenxygen"))
 
 
+# Cache defaults
+DEFAULT_CACHE_SIMILARITY_THRESHOLD = 0.92
+DEFAULT_CACHE_MAX_ENTRIES = 10_000
+DEFAULT_CACHE_TTL_SECONDS = 86400  # 24 hours
+
+
 class CacheConfig(BaseSettings):
     """Semantic cache settings."""
 
     enabled: bool = True
-    similarity_threshold: float = 0.92
-    max_entries: int = 10_000
-    ttl_seconds: int = 86400  # 24h
+    similarity_threshold: float = DEFAULT_CACHE_SIMILARITY_THRESHOLD
+    max_entries: int = DEFAULT_CACHE_MAX_ENTRIES
+    ttl_seconds: int = DEFAULT_CACHE_TTL_SECONDS
     db_path: str = str(DATA_DIR / "cache.db")
 
 
