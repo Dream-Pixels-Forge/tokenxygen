@@ -310,39 +310,43 @@ async def _forward_raw(
 
 
 # ---------------------------------------------------------------------------
-# Routes
+# Routes — specific routes BEFORE catch-all
 # ---------------------------------------------------------------------------
 
-@app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
-async def proxy_all(request: Request, path: str):
-    """Catch-all proxy route — forwards any request to upstream."""
-    # Rate limiting
-    client_ip = request.client.host if request.client else "unknown"
-    if not _check_rate_limit(client_ip):
-        return JSONResponse(
-            status_code=429,
-            content={"error": "Rate limit exceeded. Max 100 requests per minute."},
-        )
-    
-    # Request size limit (10MB)
-    body = await request.body()
-    if len(body) > 10 * 1024 * 1024:
-        return JSONResponse(
-            status_code=413,
-            content={"error": "Request too large. Max 10MB."},
-        )
-    
-    headers = dict(request.headers)
-    is_stream = False
 
-    if body:
-        try:
-            data = json.loads(body)
-            is_stream = data.get("stream", False)
-        except json.JSONDecodeError:
-            pass
+def _check_rate_limit(client_ip: str) -> bool:
+    """Check if client is within rate limit. Returns True if allowed."""
+    now = time.time()
+    
+    with _rate_limit_lock:
+        if client_ip not in _rate_limit_store:
+            _rate_limit_store[client_ip] = []
+        
+        # Remove old entries
+        _rate_limit_store[client_ip] = [
+            t for t in _rate_limit_store[client_ip]
+            if now - t < RATE_LIMIT_WINDOW
+        ]
+        
+        if len(_rate_limit_store[client_ip]) >= RATE_LIMIT_REQUESTS:
+            return False
+        
+        _rate_limit_store[client_ip].append(now)
+        return True
 
-    return await _proxy_request(path, request.method, headers, body, stream=is_stream)
+
+def _check_admin_auth(request: Request) -> bool:
+    """Check for admin API key in request header."""
+    admin_key = settings.proxy.api_key
+    if not admin_key:
+        return True  # No key configured = open access
+    provided = request.headers.get("X-Admin-Key", "")
+    return provided == admin_key
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok", "version": "0.5.0"}
 
 
 @app.get("/tokenxygen/stats")
@@ -374,15 +378,6 @@ async def budget_status():
     }
 
 
-def _check_admin_auth(request: Request) -> bool:
-    """Check for admin API key in request header."""
-    admin_key = settings.proxy.api_key
-    if not admin_key:
-        return True  # No key configured = open access
-    provided = request.headers.get("X-Admin-Key", "")
-    return provided == admin_key
-
-
 @app.post("/tokenxygen/budget/limit")
 async def set_budget_limit(request: Request):
     """Set the daily budget limit."""
@@ -410,33 +405,6 @@ async def clear_cache(request: Request):
     return {"cleared": count}
 
 
-def _check_rate_limit(client_ip: str) -> bool:
-    """Check if client is within rate limit. Returns True if allowed."""
-    import time
-    now = time.time()
-    
-    with _rate_limit_lock:
-        if client_ip not in _rate_limit_store:
-            _rate_limit_store[client_ip] = []
-        
-        # Remove old entries
-        _rate_limit_store[client_ip] = [
-            t for t in _rate_limit_store[client_ip]
-            if now - t < RATE_LIMIT_WINDOW
-        ]
-        
-        if len(_rate_limit_store[client_ip]) >= RATE_LIMIT_REQUESTS:
-            return False
-        
-        _rate_limit_store[client_ip].append(now)
-        return True
-
-
-@app.get("/health")
-async def health():
-    return {"status": "ok", "version": "0.5.0"}
-
-
 @app.get("/metrics")
 async def prometheus_metrics():
     """Prometheus metrics endpoint."""
@@ -458,3 +426,36 @@ async def prometheus_metrics():
 async def json_metrics():
     """JSON metrics endpoint (for dashboard)."""
     return metrics.to_dict()
+
+
+# Catch-all route MUST be last
+@app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
+async def proxy_all(request: Request, path: str):
+    """Catch-all proxy route — forwards any request to upstream."""
+    # Rate limiting
+    client_ip = request.client.host if request.client else "unknown"
+    if not _check_rate_limit(client_ip):
+        return JSONResponse(
+            status_code=429,
+            content={"error": "Rate limit exceeded. Max 100 requests per minute."},
+        )
+    
+    # Request size limit (10MB)
+    body = await request.body()
+    if len(body) > 10 * 1024 * 1024:
+        return JSONResponse(
+            status_code=413,
+            content={"error": "Request too large. Max 10MB."},
+        )
+    
+    headers = dict(request.headers)
+    is_stream = False
+
+    if body:
+        try:
+            data = json.loads(body)
+            is_stream = data.get("stream", False)
+        except json.JSONDecodeError:
+            pass
+
+    return await _proxy_request(path, request.method, headers, body, stream=is_stream)
