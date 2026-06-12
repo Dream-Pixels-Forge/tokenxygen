@@ -7,8 +7,12 @@ import time
 from dataclasses import dataclass
 from typing import Optional
 
+import logging
+
 from tokenxygen.config import settings
 from tokenxygen.core import count_tokens, estimate_cost_usd
+
+logger = logging.getLogger("tokenxygen.analytics")
 
 
 @dataclass
@@ -52,26 +56,34 @@ class Analytics:
             conn.commit()
 
     def record(self, rec: RequestRecord) -> None:
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute(
-                """
-                INSERT INTO requests
-                (timestamp, model, original_tokens, optimized_tokens, cache_hit,
-                 strategies_used, cost_before_usd, cost_after_usd)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    rec.timestamp,
-                    rec.model,
-                    rec.original_tokens,
-                    rec.optimized_tokens,
-                    rec.cache_hit,
-                    ",".join(rec.strategies_used),
-                    rec.cost_before_usd,
-                    rec.cost_after_usd,
-                ),
-            )
-            conn.commit()
+        for attempt in range(3):
+            try:
+                with sqlite3.connect(self.db_path) as conn:
+                    conn.execute(
+                        """
+                        INSERT INTO requests
+                        (timestamp, model, original_tokens, optimized_tokens, cache_hit,
+                         strategies_used, cost_before_usd, cost_after_usd)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            rec.timestamp,
+                            rec.model,
+                            rec.original_tokens,
+                            rec.optimized_tokens,
+                            rec.cache_hit,
+                            ",".join(rec.strategies_used),
+                            rec.cost_before_usd,
+                            rec.cost_after_usd,
+                        ),
+                    )
+                    conn.commit()
+                return
+            except sqlite3.OperationalError as e:
+                logger.warning("Analytics record attempt %d failed: %s", attempt + 1, e)
+                if attempt == 2:
+                    return
+                time.sleep(0.1 * (attempt + 1))
 
     def today_summary(self) -> dict:
         """Get today's usage summary."""

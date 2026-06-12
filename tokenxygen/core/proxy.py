@@ -172,8 +172,8 @@ async def _proxy_request(
         try:
             resp_data = json.loads(response.body)
             _get_cache().put(messages, resp_data, model, optimized_tokens)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Failed to cache response: %s", e)
 
     # --- Step 6: Record analytics ---
     cost_before = estimate_cost_usd(original_tokens, model)

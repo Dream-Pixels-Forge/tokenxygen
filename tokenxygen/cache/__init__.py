@@ -12,8 +12,12 @@ import time
 from dataclasses import dataclass
 from typing import Optional
 
+import logging
+
 from tokenxygen.config import settings
 from tokenxygen.core import content_hash, count_tokens
+
+logger = logging.getLogger("tokenxygen.cache")
 
 
 class SemanticCache:
@@ -54,34 +58,41 @@ class SemanticCache:
 
         Returns cached response dict or None.
         """
-        # Build a deterministic key from messages
         key = self._build_key(messages, model)
 
-        with sqlite3.connect(self.db_path) as conn:
-            row = conn.execute(
-                "SELECT response, created_at, hit_count FROM cache WHERE key = ?",
-                (key,),
-            ).fetchone()
+        for attempt in range(3):
+            try:
+                with sqlite3.connect(self.db_path) as conn:
+                    row = conn.execute(
+                        "SELECT response, created_at, hit_count FROM cache WHERE key = ?",
+                        (key,),
+                    ).fetchone()
 
-            if row is None:
-                return None
+                    if row is None:
+                        return None
 
-            response_json, created_at, hit_count = row
+                    response_json, created_at, hit_count = row
 
-            # Check TTL
-            if time.time() - created_at > self.ttl:
-                conn.execute("DELETE FROM cache WHERE key = ?", (key,))
-                conn.commit()
-                return None
+                    # Check TTL
+                    if time.time() - created_at > self.ttl:
+                        conn.execute("DELETE FROM cache WHERE key = ?", (key,))
+                        conn.commit()
+                        return None
 
-            # Update hit count
-            conn.execute(
-                "UPDATE cache SET hit_count = ? WHERE key = ?",
-                (hit_count + 1, key),
-            )
-            conn.commit()
+                    # Update hit count
+                    conn.execute(
+                        "UPDATE cache SET hit_count = ? WHERE key = ?",
+                        (hit_count + 1, key),
+                    )
+                    conn.commit()
 
-            return json.loads(response_json)
+                    return json.loads(response_json)
+            except sqlite3.OperationalError as e:
+                logger.warning("Cache get attempt %d failed: %s", attempt + 1, e)
+                if attempt == 2:
+                    return None
+                time.sleep(0.1 * (attempt + 1))
+        return None
 
     def put(
         self,
@@ -94,29 +105,37 @@ class SemanticCache:
         key = self._build_key(messages, model)
         now = time.time()
 
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute(
-                """
-                INSERT OR REPLACE INTO cache
-                (key, prompt_hash, response, tokens_saved, created_at, hit_count)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                (key, content_hash(str(messages)), json.dumps(response), tokens_used, now, 0),
-            )
-
-            # Evict old entries if over limit
-            count = conn.execute("SELECT COUNT(*) FROM cache").fetchone()[0]
-            if count > self.max_entries:
-                conn.execute(
-                    """
-                    DELETE FROM cache WHERE key IN (
-                        SELECT key FROM cache ORDER BY created_at ASC LIMIT ?
+        for attempt in range(3):
+            try:
+                with sqlite3.connect(self.db_path) as conn:
+                    conn.execute(
+                        """
+                        INSERT OR REPLACE INTO cache
+                        (key, prompt_hash, response, tokens_saved, created_at, hit_count)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                        """,
+                        (key, content_hash(str(messages)), json.dumps(response), tokens_used, now, 0),
                     )
-                    """,
-                    (count - self.max_entries + 1000,),
-                )
 
-            conn.commit()
+                    # Evict old entries if over limit
+                    count = conn.execute("SELECT COUNT(*) FROM cache").fetchone()[0]
+                    if count > self.max_entries:
+                        conn.execute(
+                            """
+                            DELETE FROM cache WHERE key IN (
+                                SELECT key FROM cache ORDER BY created_at ASC LIMIT ?
+                            )
+                            """,
+                            (count - self.max_entries + 1000,),
+                        )
+
+                    conn.commit()
+                return
+            except sqlite3.OperationalError as e:
+                logger.warning("Cache put attempt %d failed: %s", attempt + 1, e)
+                if attempt == 2:
+                    return
+                time.sleep(0.1 * (attempt + 1))
 
     def stats(self) -> dict:
         """Return cache statistics."""
