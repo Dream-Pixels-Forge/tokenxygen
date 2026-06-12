@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TokenSaver Dashboard</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a25;
+    --border: #2a2a3a;
+    --text: #e4e4ef;
+    --text-dim: #8888aa;
+    --green: #22c55e;
+    --green-dim: #15803d;
+    --red: #ef4444;
+    --blue: #3b82f6;
+    --purple: #a855f7;
+    --orange: #f97316;
+    --cyan: #06b6d4;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 24px;
+  }
+
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 32px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .header h1 {
+    font-size: 24px;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--green), var(--cyan));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .header .version {
+    color: var(--text-dim);
+    font-size: 12px;
+  }
+
+  .status-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    margin-right: 8px;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+
+  .card-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+
+  .card-value {
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1.1;
+  }
+
+  .card-sub {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+
+  .green { color: var(--green); }
+  .red { color: var(--red); }
+  .blue { color: var(--blue); }
+  .purple { color: var(--purple); }
+  .orange { color: var(--orange); }
+  .cyan { color: var(--cyan); }
+
+  .budget-bar {
+    height: 8px;
+    background: var(--surface2);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 12px;
+  }
+
+  .budget-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s ease, background 0.3s ease;
+  }
+
+  .strategies-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin-top: 16px;
+  }
+
+  .strategy {
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .strategy-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+
+  .strategy-name {
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .strategy-status {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-left: auto;
+  }
+
+  .on { background: var(--green-dim); color: var(--green); }
+  .off { background: #2a1a1a; color: var(--red); }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  th {
+    text-align: left;
+    padding: 8px 12px;
+    color: var(--text-dim);
+    font-weight: 500;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .chart-container {
+    position: relative;
+    height: 160px;
+    margin-top: 16px;
+  }
+
+  .bar-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    height: 140px;
+    padding-top: 20px;
+  }
+
+  .bar-group {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .bar {
+    width: 100%;
+    min-height: 2px;
+    border-radius: 2px 2px 0 0;
+    transition: height 0.3s ease;
+  }
+
+  .bar-before { background: var(--border); }
+  .bar-after { background: var(--green); }
+
+  .bar-label {
+    font-size: 9px;
+    color: var(--text-dim);
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    max-height: 40px;
+    overflow: hidden;
+  }
+
+  .refresh-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12px;
+  }
+
+  .refresh-btn:hover { border-color: var(--green); }
+
+  .section-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-dim);
+  }
+
+  .empty-state .emoji { font-size: 48px; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>🚀 TokenSaver</h1>
+    <div class="version"><span class="status-dot"></span>Proxy running • v0.2.0</div>
+  </div>
+  <button class="refresh-btn" onclick="refresh()">↻ Refresh</button>
+</div>
+
+<!-- Metric Cards -->
+<div class="grid" id="metrics">
+  <div class="card">
+    <div class="card-label">Today's Savings</div>
+    <div class="card-value green" id="saved-tokens">0</div>
+    <div class="card-sub" id="savings-pct">0% reduction</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Money Saved</div>
+    <div class="card-value green" id="saved-usd">$0.00</div>
+    <div class="card-sub" id="cost-before">of $0.00 spent</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Requests Today</div>
+    <div class="card-value blue" id="requests">0</div>
+    <div class="card-sub" id="cache-hits">0 cache hits</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Budget</div>
+    <div class="card-value cyan" id="budget-remaining">$10.00</div>
+    <div class="card-sub" id="budget-label">remaining today</div>
+    <div class="budget-bar">
+      <div class="budget-fill" id="budget-fill" style="width: 0%; background: var(--green)"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Strategies -->
+<div class="card" style="margin-bottom: 24px">
+  <div class="section-title">⚡ Optimization Strategies</div>
+  <div class="strategies-grid" id="strategies">
+    <div class="strategy">
+      <div class="strategy-icon" style="background: #15803d22">💾</div>
+      <div>
+        <div style="font-weight: 600">Cache</div>
+        <div class="strategy-name">Semantic response cache</div>
+      </div>
+      <span class="strategy-status on" id="strat-cache">ON</span>
+    </div>
+    <div class="strategy">
+      <div class="strategy-icon" style="background: #2563eb22">🗜️</div>
+      <div>
+        <div style="font-weight: 600">Compress</div>
+        <div class="strategy-name">File dedup + comment strip</div>
+      </div>
+      <span class="strategy-status on" id="strat-compress">ON</span>
+    </div>
+    <div class="strategy">
+      <div class="strategy-icon" style="background: #9333ea22">🧠</div>
+      <div>
+        <div style="font-weight: 600">Router</div>
+        <div class="strategy-name">Smart model selection</div>
+      </div>
+      <span class="strategy-status on" id="strat-router">ON</span>
+    </div>
+    <div class="strategy">
+      <div class="strategy-icon" style="background: #ea580c22">🛡️</div>
+      <div>
+        <div style="font-weight: 600">Budget</div>
+        <div class="strategy-name">Daily spending guard</div>
+      </div>
+      <span class="strategy-status on" id="strat-budget">ON</span>
+    </div>
+  </div>
+</div>
+
+<!-- Daily History Chart -->
+<div class="card" style="margin-bottom: 24px">
+  <div class="section-title">📈 Daily History</div>
+  <div class="bar-chart" id="chart">
+    <div class="empty-state">
+      <div class="emoji">📊</div>
+      <div>No data yet — start the proxy and make some requests!</div>
+    </div>
+  </div>
+</div>
+
+<!-- All-Time Summary -->
+<div class="grid" style="grid-template-columns: 1fr 1fr">
+  <div class="card">
+    <div class="section-title">📊 All-Time Stats</div>
+    <table>
+      <tr><td class="text-dim">Total Requests</td><td id="all-requests" style="text-align:right">0</td></tr>
+      <tr><td class="text-dim">Total Saved</td><td id="all-saved" class="green" style="text-align:right">0 tokens</td></tr>
+      <tr><td class="text-dim">Total Saved ($)</td><td id="all-saved-usd" class="green" style="text-align:right">$0.00</td></tr>
+      <tr><td class="text-dim">Overall Savings</td><td id="all-pct" style="text-align:right">0%</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <div class="section-title">💰 Budget Breakdown</div>
+    <table>
+      <tr><td class="text-dim">Daily Limit</td><td id="bd-limit" style="text-align:right">$10.00</td></tr>
+      <tr><td class="text-dim">Spent Today</td><td id="bd-spent" style="text-align:right">$0.00</td></tr>
+      <tr><td class="text-dim">Avg per Request</td><td id="bd-avg" style="text-align:right">$0.00</td></tr>
+      <tr><td class="text-dim">Max Single Request</td><td id="bd-max" style="text-align:right">$0.00</td></tr>
+    </table>
+  </div>
+</div>
+
+<script>
+const API = window.location.origin;
+
+async function fetchStats() {
+  try {
+    const [statsRes, budgetRes, histRes] = await Promise.all([
+      fetch(`${API}/api/stats`),
+      fetch(`${API}/api/budget`),
+      fetch(`${API}/api/history?days=14`),
+    ]);
+    const stats = await statsRes.json();
+    const budget = await budgetRes.json();
+    const history = await histRes.json();
+    return { stats, budget, history };
+  } catch (e) {
+    console.error('Failed to fetch stats:', e);
+    return null;
+  }
+}
+
+function fmt(n) {
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+  return n.toString();
+}
+
+function render({ stats, budget, history }) {
+  if (!stats) return;
+
+  // Metric cards
+  document.getElementById('saved-tokens').textContent = fmt(stats.today.saved_tokens);
+  document.getElementById('savings-pct').textContent = stats.today.savings_pct + '% reduction';
+  document.getElementById('saved-usd').textContent = '$' + stats.today.saved_usd.toFixed(4);
+  document.getElementById('cost-before').textContent = 'of $' + stats.today.cost_before_usd.toFixed(4) + ' spent';
+  document.getElementById('requests').textContent = stats.today.requests;
+  document.getElementById('cache-hits').textContent = stats.cache.total_hits + ' cache hits';
+
+  // Budget
+  const util = budget.utilization || 0;
+  const fill = document.getElementById('budget-fill');
+  fill.style.width = Math.min(util * 100, 100) + '%';
+  fill.style.background = util > 0.95 ? 'var(--red)' : util > 0.8 ? 'var(--orange)' : 'var(--green)';
+  document.getElementById('budget-remaining').textContent = '$' + budget.remaining.toFixed(2);
+  document.getElementById('budget-remaining').className = 'card-value ' + (util > 0.8 ? 'orange' : 'cyan');
+
+  // All-time
+  document.getElementById('all-requests').textContent = stats.all_time.requests;
+  document.getElementById('all-saved').textContent = fmt(stats.all_time.saved_tokens) + ' tokens';
+  document.getElementById('all-saved-usd').textContent = '$' + stats.all_time.saved_usd.toFixed(4);
+  document.getElementById('all-pct').textContent = stats.all_time.savings_pct + '%';
+
+  // Budget breakdown
+  const bd = stats.budget.breakdown;
+  document.getElementById('bd-limit').textContent = '$' + budget.daily_limit.toFixed(2);
+  document.getElementById('bd-spent').textContent = '$' + bd.total_cost.toFixed(4);
+  document.getElementById('bd-avg').textContent = '$' + bd.avg_cost.toFixed(6);
+  document.getElementById('bd-max').textContent = '$' + bd.max_cost.toFixed(6);
+
+  // Chart
+  renderChart(history);
+}
+
+function renderChart(history) {
+  const container = document.getElementById('chart');
+  if (!history || history.length === 0) {
+    container.innerHTML = '<div class="empty-state"><div class="emoji">📊</div><div>No data yet — start the proxy and make requests!</div></div>';
+    return;
+  }
+
+  const maxTokens = Math.max(...history.map(d => d.original_tokens), 1);
+
+  container.innerHTML = history.map(d => {
+    const beforeH = (d.original_tokens / maxTokens) * 120;
+    const afterH = (d.optimized_tokens / maxTokens) * 120;
+    const label = d.date.slice(5); // MM-DD
+    return `
+      <div class="bar-group" title="${d.date}: ${d.requests} reqs, saved ${d.saved_tokens} tokens">
+        <div style="display:flex;gap:2px;align-items:flex-end;height:140px">
+          <div class="bar bar-before" style="height:${beforeH}px"></div>
+          <div class="bar bar-after" style="height:${afterH}px"></div>
+        </div>
+        <div class="bar-label" style="writing-mode:horizontal-tb;transform:none;font-size:10px;margin-top:4px">${label}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function refresh() {
+  const data = await fetchStats();
+  if (data) render(data);
+}
+
+// Auto-refresh every 5 seconds
+refresh();
+setInterval(refresh, 5000);
+</script>
+
+</body>
+</html>

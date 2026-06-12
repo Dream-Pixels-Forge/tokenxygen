@@ -12,17 +12,19 @@ from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from tokensaver.analytics import RequestRecord, _get_analytics
+from tokensaver.budget import BudgetAction, _get_budget_guard
 from tokensaver.cache import _get_cache
-from tokensaver.compress import compressor
+from tokensaver.compress import PromptCompressor, compressor
 from tokensaver.config import settings
 from tokensaver.core import count_tokens, estimate_cost_usd
+from tokensaver.router import router, RoutingDecision
 
 logger = logging.getLogger("tokensaver")
 
 app = FastAPI(
     title="TokenSaver",
     description="Universal token optimizer for coding agents",
-    version="0.1.0",
+    version="0.2.0",
 )
 
 # Shared HTTP client for upstream requests
@@ -71,6 +73,26 @@ async def _proxy_request(
     if not messages:
         return await _forward_raw(path, method, headers, body, stream)
 
+    # --- Step 0: Budget check ---
+    original_tokens = count_tokens(json.dumps(messages), model)
+    estimated_cost = estimate_cost_usd(original_tokens, model)
+    budget = _get_budget_guard().check(estimated_cost)
+
+    if budget.action == BudgetAction.BLOCK:
+        logger.warning("Budget BLOCKED: %s (spent $%.2f / $%.2f)",
+                       budget.reason, budget.spent_today, budget.daily_limit)
+        return JSONResponse(
+            status_code=429,
+            content={
+                "error": {
+                    "message": f"TokenSaver budget limit reached: {budget.reason}. "
+                               f"Spent ${budget.spent_today:.2f} of ${budget.daily_limit:.2f} today.",
+                    "type": "budget_exceeded",
+                    "code": "budget_exceeded",
+                }
+            },
+        )
+
     # --- Step 1: Check cache ---
     if settings.cache.enabled:
         cache = _get_cache()
@@ -79,18 +101,23 @@ async def _proxy_request(
             logger.info("Cache HIT for model=%s", model)
             cached["_tokensaver"] = {
                 "cache_hit": True,
-                "original_tokens": count_tokens(str(messages), model),
+                "original_tokens": original_tokens,
                 "optimized_tokens": 0,
                 "strategies": ["cache"],
             }
             return JSONResponse(content=cached)
 
     # --- Step 2: Compress ---
-    original_tokens = count_tokens(json.dumps(messages), model)
     strategies = []
 
     if settings.compress.enabled:
-        messages, results = compressor.compress(messages, model)
+        # Use aggressive compression if budget is tight
+        compress = compressor
+        if budget.action == BudgetAction.AGGRESSIVE_COMPRESS:
+            compress = PromptCompressor(aggressiveness=0.8)
+            strategies.append("aggressive_compress")
+
+        messages, results = compress.compress(messages, model)
         if results:
             strategies.extend([r.strategy for r in results])
             total_saved = sum(r.saved_tokens for r in results)
@@ -103,19 +130,23 @@ async def _proxy_request(
                     strategies,
                 )
 
-    # --- Step 3: Route to cheapest model (simple heuristic) ---
-    if settings.router.enabled and not strategies:
-        est_tokens = count_tokens(json.dumps(messages), model)
-        if est_tokens < settings.router.simple_threshold:
-            # Use cheap model for simple prompts
+    # --- Step 3: Smart routing ---
+    if settings.router.enabled:
+        token_count = count_tokens(json.dumps(messages), model)
+        decision = router.route(messages, model, token_count)
+
+        if decision.routed_model != model:
+            strategies.append(f"route:{model}→{decision.routed_model}")
+            logger.info("Routed %s→%s (tier=%s, reason=%s)",
+                        model, decision.routed_model, decision.tier.name, decision.reason)
+
+        # If budget says downgrade, force cheapest model
+        if budget.action == BudgetAction.DOWNGRADE and decision.routed_model == model:
             if model in ("gpt-4o", "gpt-4-turbo"):
-                strategies.append(f"route:{model}→{settings.router.cheap_model}")
-                model = settings.router.cheap_model
-                # Update model in body
-                if body:
-                    data = json.loads(body)
-                    data["model"] = model
-                    body = json.dumps(data).encode()
+                strategies.append(f"budget_downgrade:{model}→{settings.router.cheap_model}")
+                decision.routed_model = settings.router.cheap_model
+
+        model = decision.routed_model
 
     # --- Step 4: Forward to upstream ---
     optimized_tokens = count_tokens(json.dumps(messages), model)
@@ -154,6 +185,9 @@ async def _proxy_request(
                 cost_after_usd=cost_after,
             )
         )
+
+    # Record to budget ledger
+    _get_budget_guard().record_cost(cost_after)
 
     # Add optimization headers
     response.headers["X-TokenSaver-Original-Tokens"] = str(original_tokens)
@@ -246,7 +280,40 @@ async def stats():
         "today": _get_analytics().today_summary(),
         "all_time": _get_analytics().all_time_summary(),
         "cache": _get_cache().stats(),
+        "budget": {
+            "daily_limit": settings.budget.daily_limit_usd,
+            "breakdown": _get_budget_guard().get_daily_breakdown(),
+        },
     }
+
+
+@app.get("/tokensaver/budget")
+async def budget_status():
+    """Return current budget status."""
+    budget = _get_budget_guard().check()
+    return {
+        "daily_limit": budget.daily_limit,
+        "spent_today": budget.spent_today,
+        "remaining": budget.remaining,
+        "utilization": round(budget.utilization, 4),
+        "action": budget.action.value,
+        "reason": budget.reason,
+        "breakdown": _get_budget_guard().get_daily_breakdown(),
+    }
+
+
+@app.post("/tokensaver/budget/limit")
+async def set_budget_limit(request: Request):
+    """Set the daily budget limit."""
+    body = await request.json()
+    limit = body.get("limit_usd")
+    if limit is None or not isinstance(limit, (int, float)) or limit < 0:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "limit_usd must be a positive number"},
+        )
+    _get_budget_guard().set_daily_limit(float(limit))
+    return {"daily_limit_usd": limit}
 
 
 @app.post("/tokensaver/cache/clear")
@@ -258,4 +325,4 @@ async def clear_cache():
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "version": "0.1.0"}
+    return {"status": "ok", "version": "0.2.0"}

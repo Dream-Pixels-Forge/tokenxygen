@@ -9,7 +9,7 @@ TokenSaver is a drop-in proxy that sits between your coding agent (Claude Code, 
 │  Coding      │────▶│  TokenSaver    │────▶│  OpenAI  │
 │  Agent       │◀────│  Proxy         │◀────│  API     │
 └─────────────┘     └────────────────┘     └──────────┘
-                    🎯 Cache | Compress | Route
+                    🎯 Cache | Compress | Route | Budget
 ```
 
 ## ⚡ Quick Start
@@ -36,10 +36,25 @@ TokenSaver applies 5 optimization strategies in order:
 | 1 | **Semantic Cache** | Reuse identical/similar responses | 30-60% |
 | 2 | **File Deduplication** | Remove repeated file contents | 10-30% |
 | 3 | **Comment Stripping** | Remove code comments from context | 5-15% |
-| 4 | **Whitespace Norm** | Collapse excessive whitespace | 2-5% |
-| 5 | **Context Truncation** | Keep only relevant context | 10-40% |
+| 4 | **Smart Routing** | Send simple queries to cheap models | 40-70% |
+| 5 | **Budget Guards** | Enforce daily limits, auto-downgrade | Variable |
 
 Combined, these typically save **40-70%** on token costs without noticeable quality loss.
+
+## 📊 Dashboard
+
+Start the proxy with a real-time web dashboard:
+
+```bash
+tokensaver serve --dashboard-port 8421
+# Open http://127.0.0.1:8421
+```
+
+Features:
+- Real-time token savings
+- Daily cost charts
+- Budget utilization
+- Strategy status
 
 ## 📦 Installation
 
@@ -47,10 +62,7 @@ Combined, these typically save **40-70%** on token costs without noticeable qual
 # Basic install (core features)
 pip install tokensaver
 
-# With semantic caching (recommended)
-pip install tokensaver[cache]
-
-# Full install (cache + compression)
+# Full install (all features)
 pip install tokensaver[full]
 
 # Development
@@ -60,8 +72,8 @@ pip install -e ".[dev]"
 ## 🛠️ CLI Commands
 
 ```bash
-# Start the proxy server
-tokensaver serve --port 8420
+# Start the proxy server + dashboard
+tokensaver serve
 
 # View token usage stats
 tokensaver stats
@@ -71,6 +83,15 @@ tokensaver history --days 30
 
 # Count tokens in text
 tokensaver tokens "Hello, world!"
+
+# Show compression results
+tokensaver compress "your code or text here"
+
+# Set budget limit
+tokensaver budget 20.00
+
+# Check budget status
+tokensaver budget-status
 
 # Get setup instructions
 tokensaver setup
@@ -139,11 +160,22 @@ X-TokenSaver-Saved: 8130
 X-TokenSaver-Strategies: file_dedup,comment_strip
 ```
 
-View stats anytime:
+API endpoints:
 
 ```bash
-tokensaver stats
-# → Today: 47 requests, 580K tokens saved, $1.45 saved
+# Stats
+curl http://127.0.0.1:8420/tokensaver/stats
+
+# Budget status
+curl http://127.0.0.1:8420/tokensaver/budget
+
+# Set budget
+curl -X POST http://127.0.0.1:8420/tokensaver/budget/limit \
+  -H "Content-Type: application/json" \
+  -d '{"limit_usd": 20.0}'
+
+# Clear cache
+curl -X POST http://127.0.0.1:8420/tokensaver/cache/clear
 ```
 
 ## ⚙️ Configuration
@@ -167,6 +199,28 @@ settings.router.enabled = True
 settings.budget.daily_limit_usd = 20.0
 ```
 
+## 🧠 Smart Router
+
+The router classifies prompts by complexity and routes to the cheapest capable model:
+
+| Tier | Prompt Type | Example | Routes To |
+|------|-------------|---------|-----------|
+| SIMPLE | Greetings, yes/no | "Hello!", "Yes" | gpt-4o-mini |
+| MEDIUM | Code questions, explanations | "How does X work?" | gpt-4o-mini |
+| COMPLEX | Architecture, security | "Design system for..." | gpt-4o |
+| EXPERT | Multi-step, critical | "Audit this for..." | gpt-4o |
+
+## 🛡️ Budget Guards
+
+Automatic budget protection:
+
+| Utilization | Action | Effect |
+|-------------|--------|--------|
+| < 80% | PASS | No changes |
+| 80-95% | DOWNGRADE | Route to cheaper model |
+| 95-100% | AGGRESSIVE_COMPRESS | Maximum compression |
+| > 100% | BLOCK | Return 429 error |
+
 ## 🧪 Development
 
 ```bash
@@ -183,11 +237,11 @@ tokensaver serve --reload
 
 ## 🗺️ Roadmap
 
-- [ ] **v0.2** — Smart model routing (classify prompt → cheapest model)
-- [ ] **v0.3** — Budget guards with auto-downgrade
-- [ ] **v0.4** — Web dashboard with cost analytics
-- [ ] **v0.5** — LLMLingua-2 integration for deeper compression
-- [ ] **v0.6** — Plugin system for custom compression strategies
+- [x] **v0.1** — Core proxy, cache, compression, analytics
+- [x] **v0.2** — Smart routing, budget guards, web dashboard
+- [ ] **v0.3** — LLMLingua-2 integration for deeper compression
+- [ ] **v0.4** — Plugin system for custom strategies
+- [ ] **v0.5** — Multi-provider support (Anthropic, Google, Ollama)
 - [ ] **v1.0** — Production ready
 
 ## 📄 License
