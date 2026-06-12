@@ -159,8 +159,12 @@ class SemanticCache:
             return count
 
     def _build_key(self, messages: list[dict], model: str) -> str:
-        """Build a deterministic cache key from chat messages."""
+        """Build a deterministic cache key from chat messages.
+        
+        Uses SHA-256 (128-bit hex) to minimize collision risk.
+        """
         # Normalize messages: sort keys, strip whitespace
+        import hashlib
         normalized = []
         for msg in messages:
             normalized.append({
@@ -168,7 +172,9 @@ class SemanticCache:
                 "content": msg.get("content", ""),
             })
         raw = json.dumps(normalized, sort_keys=True, separators=(",", ":"))
-        return f"{model}:{content_hash(raw)}"
+        # Use SHA-256 for collision resistance
+        key_hash = hashlib.sha256(raw.encode()).hexdigest()[:32]
+        return f"{model}:{key_hash}"
 
 
 # Lazy singleton
