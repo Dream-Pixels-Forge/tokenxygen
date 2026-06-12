@@ -1,7 +1,7 @@
 """Multi-provider support — route to OpenAI, Anthropic, Google, or local Ollama.
 
 The provider layer normalizes different API formats into a single interface,
-allowing TokenSaver to seamlessly switch between providers based on cost/quality.
+allowing Tokenxygen to seamlessly switch between providers based on cost/quality.
 """
 
 from __future__ import annotations

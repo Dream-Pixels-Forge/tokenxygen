@@ -1,4 +1,4 @@
-"""Web dashboard for TokenSaver — real-time stats, charts, and controls."""
+"""Web dashboard for Tokenxygen — real-time stats, charts, and controls."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ def _read_dashboard_html() -> str:
     except FileNotFoundError:
         return """<!DOCTYPE html><html><body><h1>Dashboard</h1><p>Dashboard HTML file not found.</p></body></html>"""
 
-dashboard_app = FastAPI(title="TokenSaver Dashboard")
+dashboard_app = FastAPI(title="Tokenxygen Dashboard")
 
 
 @dashboard_app.get("/", response_class=HTMLResponse)

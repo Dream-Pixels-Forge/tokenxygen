@@ -94,7 +94,7 @@ async def _proxy_request(
             status_code=429,
             content={
                 "error": {
-                    "message": f"TokenSaver budget limit reached: {budget.reason}. "
+                    "message": f"Tokenxygen budget limit reached: {budget.reason}. "
                                f"Spent ${budget.spent_today:.2f} of ${budget.daily_limit:.2f} today.",
                     "type": "budget_exceeded",
                     "code": "budget_exceeded",
@@ -199,10 +199,10 @@ async def _proxy_request(
     _get_budget_guard().record_cost(cost_after)
 
     # Add optimization headers
-    response.headers["X-TokenSaver-Original-Tokens"] = str(original_tokens)
-    response.headers["X-TokenSaver-Optimized-Tokens"] = str(optimized_tokens)
-    response.headers["X-TokenSaver-Saved"] = str(original_tokens - optimized_tokens)
-    response.headers["X-TokenSaver-Strategies"] = ",".join(strategies) if strategies else "none"
+    response.headers["X-Tokenxygen-Original-Tokens"] = str(original_tokens)
+    response.headers["X-Tokenxygen-Optimized-Tokens"] = str(optimized_tokens)
+    response.headers["X-Tokenxygen-Saved"] = str(original_tokens - optimized_tokens)
+    response.headers["X-Tokenxygen-Strategies"] = ",".join(strategies) if strategies else "none"
 
     # Record metrics
     duration_ms = (time.time() - start) * 1000
@@ -345,7 +345,7 @@ async def proxy_all(request: Request, path: str):
 
 @app.get("/tokenxygen/stats")
 async def stats():
-    """Return TokenSaver analytics."""
+    """Return Tokenxygen analytics."""
     return {
         "today": _get_analytics().today_summary(),
         "all_time": _get_analytics().all_time_summary(),

@@ -1,1 +1,1 @@
-"""CLI package for TokenSaver."""
+"""CLI package for Tokenxygen."""

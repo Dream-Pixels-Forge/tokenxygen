@@ -1,4 +1,4 @@
-"""TokenSaver CLI — manage the optimizer, view stats, control the proxy."""
+"""Tokenxygen CLI — manage the optimizer, view stats, control the proxy."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ console = Console()
 @click.group()
 @click.version_option(package_name="tokenxygen")
 def cli():
-    """TokenSaver — Universal token optimizer for coding agents."""
+    """Tokenxygen — Universal token optimizer for coding agents."""
     pass
 
 
@@ -31,7 +31,7 @@ def cli():
 @click.option("--json-logs", is_flag=True, help="Use JSON log format")
 @click.option("--log-level", default="INFO", help="Log level")
 def serve(host: str, port: int, upstream: str | None, dashboard_port: int, json_logs: bool, log_level: str):
-    """Start the TokenSaver proxy server."""
+    """Start the Tokenxygen proxy server."""
     from tokenxygen.config import settings
 
     if upstream:
@@ -45,7 +45,7 @@ def serve(host: str, port: int, upstream: str | None, dashboard_port: int, json_
 
     console.print(
         Panel(
-            f"[bold green]TokenSaver Proxy[/]\n\n"
+            f"[bold green]Tokenxygen Proxy[/]\n\n"
             f"  Proxy:      [cyan]http://{host}:{port}[/]\n"
             f"  Dashboard:  [cyan]http://{host}:{dashboard_port}[/]\n"
             f"  Upstream:   [dim]{settings.proxy.upstream_base_url}[/]\n\n"
@@ -54,7 +54,7 @@ def serve(host: str, port: int, upstream: str | None, dashboard_port: int, json_
             f"  Router:     {'[green]ON' if settings.router.enabled else '[red]OFF'}[/]\n"
             f"  Budget:     [cyan]${settings.budget.daily_limit_usd}/day[/]\n\n"
             f"  [dim]Set OPENAI_BASE_URL=http://{host}:{port}/v1 to use with any tool[/]",
-            title="🚀 TokenSaver v0.2",
+            title="🚀 Tokenxygen v0.2",
             border_style="green",
         )
     )
@@ -226,7 +226,7 @@ def setup():
 
 @cli.command()
 def env():
-    """Print shell exports to enable TokenSaver for all tools."""
+    """Print shell exports to enable Tokenxygen for all tools."""
     from tokenxygen.config import settings
 
     host = settings.proxy.host
