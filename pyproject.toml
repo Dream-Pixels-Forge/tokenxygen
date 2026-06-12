@@ -9,14 +9,13 @@ description = "Universal token optimizer for coding agents — save 40-70% on LL
 readme = "README.md"
 # Skill documentation included in package
 # See SKILL.md for comprehensive usage guide
-license = { text = "MIT" }
+license = "MIT"
 requires-python = ">=3.10"
 authors = [{ name = "Tokenxygen" }]
 keywords = ["llm", "tokens", "optimizer", "coding-agent", "claude", "cursor", "cost"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
