@@ -1,6 +1,6 @@
 """Tests for core token counting utilities."""
 
-from tokensaver.core import count_tokens, count_message_tokens, estimate_cost_usd, content_hash, truncate_to_tokens
+from tokenxygen.core import count_tokens, count_message_tokens, estimate_cost_usd, content_hash, truncate_to_tokens
 
 
 def test_count_tokens():

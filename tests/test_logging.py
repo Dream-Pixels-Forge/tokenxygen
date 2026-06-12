@@ -5,7 +5,7 @@ import logging
 
 import pytest
 
-from tokensaver.logging import (
+from tokenxygen.logging import (
     JSONFormatter,
     ConsoleFormatter,
     RequestLogger,
@@ -90,7 +90,7 @@ def test_console_formatter_with_request_id():
 
 def test_setup_logging():
     setup_logging(level="DEBUG", json_format=False)
-    logger = logging.getLogger("tokensaver")
+    logger = logging.getLogger("tokenxygen")
     assert logger.level <= logging.DEBUG
 
 

@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
 
-from tokensaver.config import settings
+from tokenxygen.config import settings
 
 
 class BudgetAction(Enum):
@@ -179,7 +179,7 @@ def _ensure_budget_table(db_path: str) -> None:
 def _get_budget_guard() -> BudgetGuard:
     global budget_guard
     if "budget_guard" not in globals() or budget_guard is None:
-        from tokensaver.config import settings as _settings
+        from tokenxygen.config import settings as _settings
         _ensure_budget_table(_settings.analytics.db_path)
         budget_guard = BudgetGuard()
     return budget_guard

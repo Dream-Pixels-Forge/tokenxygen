@@ -3,13 +3,13 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "tokensaver"
-version = "0.1.0"
+name = "tokenxygen"
+version = "0.5.0"
 description = "Universal token optimizer for coding agents — save 40-70% on LLM costs"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"
-authors = [{ name = "TokenSaver" }]
+authors = [{ name = "Tokenxygen" }]
 keywords = ["llm", "tokens", "optimizer", "coding-agent", "claude", "cursor", "cost"]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -38,10 +38,10 @@ full = ["chromadb>=0.5.0", "sentence-transformers>=2.5.0"]
 dev = ["pytest>=8.0", "pytest-asyncio>=0.23.0", "ruff>=0.4.0"]
 
 [project.scripts]
-tokensaver = "tokensaver.cli.main:cli"
+tokenxygen = "tokenxygen.cli.main:cli"
 
 [tool.setuptools.packages.find]
-include = ["tokensaver*"]
+include = ["tokenxygen*"]
 
 [tool.ruff]
 target-version = "py310"

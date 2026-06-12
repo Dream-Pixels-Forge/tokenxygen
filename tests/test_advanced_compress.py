@@ -2,7 +2,7 @@
 
 import pytest
 
-from tokensaver.compress.advanced import LLMLinguaCompressor, CompressionStats
+from tokenxygen.compress.advanced import LLMLinguaCompressor, CompressionStats
 
 
 @pytest.fixture

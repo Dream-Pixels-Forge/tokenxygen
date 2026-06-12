@@ -17,7 +17,7 @@ console = Console()
 
 
 @click.group()
-@click.version_option(package_name="tokensaver")
+@click.version_option(package_name="tokenxygen")
 def cli():
     """TokenSaver — Universal token optimizer for coding agents."""
     pass
@@ -32,7 +32,7 @@ def cli():
 @click.option("--log-level", default="INFO", help="Log level")
 def serve(host: str, port: int, upstream: str | None, dashboard_port: int, json_logs: bool, log_level: str):
     """Start the TokenSaver proxy server."""
-    from tokensaver.config import settings
+    from tokenxygen.config import settings
 
     if upstream:
         settings.proxy.upstream_base_url = upstream
@@ -40,7 +40,7 @@ def serve(host: str, port: int, upstream: str | None, dashboard_port: int, json_
     settings.ensure_dirs()
 
     # Setup logging
-    from tokensaver.logging import setup_logging
+    from tokenxygen.logging import setup_logging
     setup_logging(level=log_level, json_format=json_logs)
 
     console.print(
@@ -64,7 +64,7 @@ def serve(host: str, port: int, upstream: str | None, dashboard_port: int, json_
 
     def run_dashboard():
         if dashboard_port > 0:
-            from tokensaver.dashboard import dashboard_app
+            from tokenxygen.dashboard import dashboard_app
             uvicorn.run(dashboard_app, host=host, port=dashboard_port, log_level="warning")
 
     # Start dashboard in background
@@ -73,7 +73,7 @@ def serve(host: str, port: int, upstream: str | None, dashboard_port: int, json_
         p.start()
 
     uvicorn.run(
-        "tokensaver.core.proxy:app",
+        "tokenxygen.core.proxy:app",
         host=host,
         port=port,
         log_level="info",
@@ -83,9 +83,9 @@ def serve(host: str, port: int, upstream: str | None, dashboard_port: int, json_
 @cli.command()
 def stats():
     """Show token usage statistics."""
-    from tokensaver.analytics import _get_analytics
-    from tokensaver.budget import _get_budget_guard
-    from tokensaver.cache import _get_cache
+    from tokenxygen.analytics import _get_analytics
+    from tokenxygen.budget import _get_budget_guard
+    from tokenxygen.cache import _get_cache
 
     analytics = _get_analytics()
     cache = _get_cache()
@@ -156,7 +156,7 @@ def stats():
 @click.option("--days", default=30, type=int, help="Number of days to show")
 def history(days: int):
     """Show daily cost history."""
-    from tokensaver.analytics import _get_analytics
+    from tokenxygen.analytics import _get_analytics
 
     daily = _get_analytics().daily_costs(days)
 
@@ -190,7 +190,7 @@ def history(days: int):
 @cli.command()
 def setup():
     """Show setup instructions for popular coding agents."""
-    from tokensaver.config import settings
+    from tokenxygen.config import settings
 
     host = settings.proxy.host
     port = settings.proxy.port
@@ -200,7 +200,7 @@ def setup():
         Panel(
             "[bold]🔧 Setup Instructions[/]\n\n"
             "[bold cyan]1. Start the proxy:[/]\n"
-            "  tokensaver serve\n\n"
+            "  tokenxygen serve\n\n"
             "[bold cyan]2. Point your tool to the proxy:[/]\n\n"
             "  [bold]Claude Code:[/]\n"
             f"    export OPENAI_BASE_URL=http://{host}:{port}/v1\n"
@@ -213,11 +213,11 @@ def setup():
             "  [bold]Python/OpenAI SDK:[/]\n"
             f"    client = OpenAI(base_url='http://{host}:{port}/v1')\n\n"
             "  [bold]Shell (all tools):[/]\n"
-            "    eval \"$(tokensaver env)\"\n\n"
+            "    eval \"$(tokenxygen env)\"\n\n"
             "[bold cyan]3. View dashboard:[/]\n"
             f"  Open http://{host}:{dash_port} in your browser\n\n"
             "[bold cyan]4. Check savings:[/]\n"
-            "  tokensaver stats",
+            "  tokenxygen stats",
             title="🚀 Getting Started",
             border_style="cyan",
         )
@@ -227,7 +227,7 @@ def setup():
 @cli.command()
 def env():
     """Print shell exports to enable TokenSaver for all tools."""
-    from tokensaver.config import settings
+    from tokenxygen.config import settings
 
     host = settings.proxy.host
     port = settings.proxy.port
@@ -239,7 +239,7 @@ def env():
 @click.argument("limit_usd", type=float)
 def budget(limit_usd: float):
     """Set the daily budget limit in USD."""
-    from tokensaver.budget import _get_budget_guard
+    from tokenxygen.budget import _get_budget_guard
 
     guard = _get_budget_guard()
     guard.set_daily_limit(limit_usd)
@@ -249,7 +249,7 @@ def budget(limit_usd: float):
 @cli.command()
 def budget_status():
     """Show current budget status."""
-    from tokensaver.budget import _get_budget_guard
+    from tokenxygen.budget import _get_budget_guard
 
     b = _get_budget_guard().check()
 
@@ -271,10 +271,10 @@ def budget_status():
 @click.option("--clear-cache", is_flag=True, help="Also clear the cache")
 def reset(clear_cache: bool):
     """Reset all analytics data."""
-    from tokensaver.cache import _get_cache
+    from tokenxygen.cache import _get_cache
 
     import os
-    from tokensaver.config import settings
+    from tokenxygen.config import settings
     os.remove(settings.analytics.db_path)
 
     if clear_cache:
@@ -288,7 +288,7 @@ def reset(clear_cache: bool):
 @click.option("--model", default="gpt-4o", help="Model to estimate for")
 def tokens(prompt: str, model: str):
     """Count tokens in a text string."""
-    from tokensaver.core import count_tokens, estimate_cost_usd
+    from tokenxygen.core import count_tokens, estimate_cost_usd
 
     token_count = count_tokens(prompt, model)
     cost = estimate_cost_usd(token_count, model)
@@ -301,8 +301,8 @@ def tokens(prompt: str, model: str):
 @click.argument("text")
 def compress(text: str):
     """Show compression results for a text string."""
-    from tokensaver.compress import PromptCompressor
-    from tokensaver.core import count_tokens
+    from tokenxygen.compress import PromptCompressor
+    from tokenxygen.core import count_tokens
 
     messages = [{"role": "user", "content": text}]
     c = PromptCompressor(aggressiveness=0.5)
@@ -324,7 +324,7 @@ def compress(text: str):
 @cli.command()
 def providers():
     """List available models and providers."""
-    from tokensaver.providers import MODEL_REGISTRY, Provider
+    from tokenxygen.providers import MODEL_REGISTRY, Provider
 
     table = Table(title="🔌 Available Models", box=box.ROUNDED)
     table.add_column("Model", style="cyan")
@@ -348,7 +348,7 @@ def providers():
 @cli.command()
 def plugins():
     """List loaded compression plugins."""
-    from tokensaver.plugins import registry
+    from tokenxygen.plugins import registry
 
     strategies = registry.get_all()
 
@@ -373,7 +373,7 @@ def plugins():
 @click.option("--tokens", "token_count", default=1000, type=int, help="Token count to compare")
 def compare(model_a: str, model_b: str, token_count: int):
     """Compare cost between two models."""
-    from tokensaver.providers import MODEL_REGISTRY, get_cheapest_provider
+    from tokenxygen.providers import MODEL_REGISTRY, get_cheapest_provider
 
     a = MODEL_REGISTRY.get(model_a)
     b = MODEL_REGISTRY.get(model_b)
@@ -408,7 +408,7 @@ def compare(model_a: str, model_b: str, token_count: int):
 @cli.command()
 def cheapest():
     """Show cheapest model for common token counts."""
-    from tokensaver.providers import get_cheapest_provider
+    from tokenxygen.providers import get_cheapest_provider
 
     console.print("[bold]💸 Cheapest Models by Context Size[/]\n")
 
@@ -433,8 +433,8 @@ def cheapest():
 @cli.command()
 def cache_stats():
     """Show detailed cache statistics."""
-    from tokensaver.cache import _get_cache
-    from tokensaver.config import settings as _settings
+    from tokenxygen.cache import _get_cache
+    from tokenxygen.config import settings as _settings
 
     cache = _get_cache()
     stats = cache.stats()
@@ -456,7 +456,7 @@ def cache_stats():
 @cli.command()
 def failover():
     """Show failover pool status."""
-    from tokensaver.providers.failover import get_pool
+    from tokenxygen.providers.failover import get_pool
 
     pool = get_pool()
     stats = pool.get_stats()
@@ -488,8 +488,8 @@ def failover():
 @click.argument("text")
 def deep_compress(text: str):
     """Show advanced LLMLingua-2 compression results."""
-    from tokensaver.compress.advanced import llmlingua
-    from tokensaver.core import count_tokens
+    from tokenxygen.compress.advanced import llmlingua
+    from tokenxygen.core import count_tokens
 
     compressed, stats = llmlingua.compress(text, compression_ratio=0.5)
 
@@ -504,7 +504,7 @@ def deep_compress(text: str):
 @cli.command()
 def metrics_cmd():
     """Show current metrics."""
-    from tokensaver.metrics import metrics
+    from tokenxygen.metrics import metrics
 
     data = metrics.to_dict()
 

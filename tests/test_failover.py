@@ -2,8 +2,8 @@
 
 import pytest
 
-from tokensaver.providers import Provider
-from tokensaver.providers.failover import (
+from tokenxygen.providers import Provider
+from tokenxygen.providers.failover import (
     ProviderPool,
     ProviderHealth,
     FailoverClient,

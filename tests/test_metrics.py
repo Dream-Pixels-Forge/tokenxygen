@@ -2,7 +2,7 @@
 
 import pytest
 
-from tokensaver.metrics import MetricsCollector, Counter, Histogram
+from tokenxygen.metrics import MetricsCollector, Counter, Histogram
 
 
 def test_counter_inc():
@@ -55,9 +55,9 @@ def test_histogram_to_prometheus():
 def test_metrics_collector_init():
     collector = MetricsCollector()
     prometheus = collector.to_prometheus()
-    assert "tokensaver_requests_total" in prometheus
-    assert "tokensaver_cache_hits_total" in prometheus
-    assert "tokensaver_tokens_saved_total" in prometheus
+    assert "tokenxygen_requests_total" in prometheus
+    assert "tokenxygen_cache_hits_total" in prometheus
+    assert "tokenxygen_tokens_saved_total" in prometheus
 
 
 def test_metrics_record_request():
@@ -73,10 +73,10 @@ def test_metrics_record_request():
     )
 
     counters = collector._counters
-    assert counters["tokensaver_requests_total"].value == 1
-    assert counters["tokensaver_cache_misses_total"].value == 1
-    assert counters["tokensaver_tokens_saved_total"].value == 400
-    assert counters["tokensaver_cost_saved_usd_total"].value == 0.001
+    assert counters["tokenxygen_requests_total"].value == 1
+    assert counters["tokenxygen_cache_misses_total"].value == 1
+    assert counters["tokenxygen_tokens_saved_total"].value == 400
+    assert counters["tokenxygen_cost_saved_usd_total"].value == 0.001
 
 
 def test_metrics_cache_hit():
@@ -90,8 +90,8 @@ def test_metrics_cache_hit():
         model="gpt-4o",
     )
 
-    assert collector._counters["tokensaver_cache_hits_total"].value == 1
-    assert collector._counters["tokensaver_cache_misses_total"].value == 0
+    assert collector._counters["tokenxygen_cache_hits_total"].value == 1
+    assert collector._counters["tokenxygen_cache_misses_total"].value == 0
 
 
 def test_metrics_routing_downgrade():
@@ -105,7 +105,7 @@ def test_metrics_routing_downgrade():
         model="gpt-4o-mini",
     )
 
-    assert collector._counters["tokensaver_routing_downgrades_total"].value == 1
+    assert collector._counters["tokenxygen_routing_downgrades_total"].value == 1
 
 
 def test_metrics_to_dict():
@@ -122,10 +122,10 @@ def test_metrics_to_dict():
     data = collector.to_dict()
     assert "counters" in data
     assert "histograms" in data
-    assert data["counters"]["tokensaver_requests_total"] == 1
+    assert data["counters"]["tokenxygen_requests_total"] == 1
 
 
 def test_metrics_gauge():
     collector = MetricsCollector()
-    collector.gauge("tokensaver_cache_entries", 42)
-    assert collector._gauges["tokensaver_cache_entries"] == 42
+    collector.gauge("tokenxygen_cache_entries", 42)
+    assert collector._gauges["tokenxygen_cache_entries"] == 42

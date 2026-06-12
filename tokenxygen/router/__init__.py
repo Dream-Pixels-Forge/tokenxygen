@@ -13,7 +13,7 @@ import re
 from dataclasses import dataclass
 from enum import Enum
 
-from tokensaver.config import settings
+from tokenxygen.config import settings
 
 
 class PromptTier(Enum):

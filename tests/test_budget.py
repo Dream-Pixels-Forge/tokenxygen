@@ -3,7 +3,7 @@
 import time
 import pytest
 
-from tokensaver.budget import BudgetGuard, BudgetAction
+from tokenxygen.budget import BudgetGuard, BudgetAction
 
 
 @pytest.fixture

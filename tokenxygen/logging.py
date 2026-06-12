@@ -113,9 +113,9 @@ def setup_logging(
         file_handler.setFormatter(JSONFormatter())
         root.addHandler(file_handler)
 
-    # Set tokensaver logger level
-    tokensaver_logger = logging.getLogger("tokensaver")
-    tokensaver_logger.setLevel(getattr(logging, level.upper(), logging.INFO))
+    # Set tokenxygen logger level
+    tokenxygen_logger = logging.getLogger("tokenxygen")
+    tokenxygen_logger.setLevel(getattr(logging, level.upper(), logging.INFO))
 
 
 class RequestLogger:
@@ -126,7 +126,7 @@ class RequestLogger:
         self.path = path
         self.method = method
         self.start_time = 0.0
-        self.logger = logging.getLogger("tokensaver.request")
+        self.logger = logging.getLogger("tokenxygen.request")
 
     def __enter__(self) -> RequestLogger:
         self.start_time = time.time()
@@ -199,9 +199,9 @@ class RequestLogger:
 
 
 # Pre-configured loggers
-proxy_logger = logging.getLogger("tokensaver.proxy")
-cache_logger = logging.getLogger("tokensaver.cache")
-compress_logger = logging.getLogger("tokensaver.compress")
-router_logger = logging.getLogger("tokensaver.router")
-budget_logger = logging.getLogger("tokensaver.budget")
-analytics_logger = logging.getLogger("tokensaver.analytics")
+proxy_logger = logging.getLogger("tokenxygen.proxy")
+cache_logger = logging.getLogger("tokenxygen.cache")
+compress_logger = logging.getLogger("tokenxygen.compress")
+router_logger = logging.getLogger("tokenxygen.router")
+budget_logger = logging.getLogger("tokenxygen.budget")
+analytics_logger = logging.getLogger("tokenxygen.analytics")

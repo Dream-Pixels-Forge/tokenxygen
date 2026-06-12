@@ -15,8 +15,8 @@ import re
 from dataclasses import dataclass
 from typing import Optional
 
-from tokensaver.config import settings
-from tokensaver.core import count_tokens, get_encoding
+from tokenxygen.config import settings
+from tokenxygen.core import count_tokens, get_encoding
 
 
 @dataclass

@@ -21,10 +21,10 @@ async def dashboard():
 @dashboard_app.get("/api/stats")
 async def api_stats():
     """Proxy stats endpoint for the dashboard."""
-    from tokensaver.analytics import _get_analytics
-    from tokensaver.budget import _get_budget_guard
-    from tokensaver.cache import _get_cache
-    from tokensaver.config import settings
+    from tokenxygen.analytics import _get_analytics
+    from tokenxygen.budget import _get_budget_guard
+    from tokenxygen.cache import _get_cache
+    from tokenxygen.config import settings
 
     return {
         "today": _get_analytics().today_summary(),
@@ -40,15 +40,15 @@ async def api_stats():
 @dashboard_app.get("/api/history")
 async def api_history(days: int = 30):
     """Daily cost history."""
-    from tokensaver.analytics import _get_analytics
+    from tokenxygen.analytics import _get_analytics
     return _get_analytics().daily_costs(days)
 
 
 @dashboard_app.get("/api/budget")
 async def api_budget():
     """Budget status."""
-    from tokensaver.budget import _get_budget_guard
-    from tokensaver.config import settings
+    from tokenxygen.budget import _get_budget_guard
+    from tokenxygen.config import settings
 
     budget = _get_budget_guard().check()
     return {

@@ -5,7 +5,7 @@ import time
 
 import pytest
 
-from tokensaver.analytics import Analytics, RequestRecord
+from tokenxygen.analytics import Analytics, RequestRecord
 
 
 @pytest.fixture

@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
 
-from tokensaver.providers import (
+from tokenxygen.providers import (
     Provider,
     ProviderConfig,
     MODEL_REGISTRY,
@@ -26,7 +26,7 @@ from tokensaver.providers import (
     get_cheapest_provider,
 )
 
-logger = logging.getLogger("tokensaver.failover")
+logger = logging.getLogger("tokenxygen.failover")
 
 
 class LoadBalanceStrategy(Enum):
@@ -258,7 +258,7 @@ def get_pool() -> ProviderPool:
     """Get the global provider pool."""
     global _pool
     if _pool is None:
-        from tokensaver.config import settings
+        from tokenxygen.config import settings
         _pool = ProviderPool(
             primary_provider=Provider.OPENAI,
             fallback_providers=[Provider.ANTHROPIC, Provider.OLLAMA],

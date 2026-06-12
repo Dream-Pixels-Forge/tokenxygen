@@ -2,7 +2,7 @@
 
 import pytest
 
-from tokensaver.providers import (
+from tokenxygen.providers import (
     OpenAIAdapter,
     AnthropicAdapter,
     OllamaAdapter,

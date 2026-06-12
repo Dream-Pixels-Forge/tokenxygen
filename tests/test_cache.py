@@ -5,7 +5,7 @@ import os
 
 import pytest
 
-from tokensaver.cache import SemanticCache
+from tokenxygen.cache import SemanticCache
 
 
 @pytest.fixture

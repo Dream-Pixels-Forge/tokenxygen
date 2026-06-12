@@ -8,7 +8,7 @@ from pydantic_settings import BaseSettings
 from pydantic import Field
 
 
-DATA_DIR = Path(os.environ.get("TOKENDATA_DIR", Path.home() / ".tokensaver"))
+DATA_DIR = Path(os.environ.get("TOKENDATA_DIR", Path.home() / ".tokenxygen"))
 
 
 class CacheConfig(BaseSettings):

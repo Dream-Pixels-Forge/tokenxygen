@@ -3,8 +3,8 @@ global:
   evaluation_interval: 15s
 
 scrape_configs:
-  - job_name: 'tokensaver'
+  - job_name: 'tokenxygen'
     static_configs:
-      - targets: ['tokensaver:8420']
+      - targets: ['tokenxygen:8420']
     metrics_path: '/metrics'
     scrape_interval: 10s

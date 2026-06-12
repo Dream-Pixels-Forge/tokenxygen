@@ -76,19 +76,19 @@ class MetricsCollector:
     def _init_metrics(self) -> None:
         """Initialize standard TokenSaver metrics."""
         # Counters
-        self.counter("tokensaver_requests_total", "Total requests processed")
-        self.counter("tokensaver_cache_hits_total", "Total cache hits")
-        self.counter("tokensaver_cache_misses_total", "Total cache misses")
-        self.counter("tokensaver_tokens_saved_total", "Total tokens saved")
-        self.counter("tokensaver_cost_saved_usd_total", "Total cost saved in USD")
-        self.counter("tokensaver_budget_blocks_total", "Total requests blocked by budget")
-        self.counter("tokensaver_routing_downgrades_total", "Total model downgrades")
-        self.counter("tokensaver_failover_attempts_total", "Total failover attempts")
+        self.counter("tokenxygen_requests_total", "Total requests processed")
+        self.counter("tokenxygen_cache_hits_total", "Total cache hits")
+        self.counter("tokenxygen_cache_misses_total", "Total cache misses")
+        self.counter("tokenxygen_tokens_saved_total", "Total tokens saved")
+        self.counter("tokenxygen_cost_saved_usd_total", "Total cost saved in USD")
+        self.counter("tokenxygen_budget_blocks_total", "Total requests blocked by budget")
+        self.counter("tokenxygen_routing_downgrades_total", "Total model downgrades")
+        self.counter("tokenxygen_failover_attempts_total", "Total failover attempts")
 
         # Histograms
-        self.histogram("tokensaver_request_duration_ms", "Request duration in milliseconds")
-        self.histogram("tokensaver_compression_ratio", "Compression ratio (0-1)")
-        self.histogram("tokensaver_tokens_per_request", "Tokens per request")
+        self.histogram("tokenxygen_request_duration_ms", "Request duration in milliseconds")
+        self.histogram("tokenxygen_compression_ratio", "Compression ratio (0-1)")
+        self.histogram("tokenxygen_tokens_per_request", "Tokens per request")
 
     def counter(self, name: str, help: str = "") -> Counter:
         with self._lock:
@@ -119,33 +119,33 @@ class MetricsCollector:
         """Record a complete request with all metrics."""
         with self._lock:
             # Request count
-            self._counters["tokensaver_requests_total"].inc()
+            self._counters["tokenxygen_requests_total"].inc()
 
             # Cache metrics
             if cache_hit:
-                self._counters["tokensaver_cache_hits_total"].inc()
+                self._counters["tokenxygen_cache_hits_total"].inc()
             else:
-                self._counters["tokensaver_cache_misses_total"].inc()
+                self._counters["tokenxygen_cache_misses_total"].inc()
 
             # Token savings
             saved = original_tokens - optimized_tokens
-            self._counters["tokensaver_tokens_saved_total"].inc(saved)
+            self._counters["tokenxygen_tokens_saved_total"].inc(saved)
 
             # Cost savings
             if cost_saved_usd > 0:
-                self._counters["tokensaver_cost_saved_usd_total"].inc(cost_saved_usd)
+                self._counters["tokenxygen_cost_saved_usd_total"].inc(cost_saved_usd)
 
             # Routing downgrades
             if any("route:" in s or "budget_downgrade:" in s for s in strategies):
-                self._counters["tokensaver_routing_downgrades_total"].inc()
+                self._counters["tokenxygen_routing_downgrades_total"].inc()
 
             # Histograms
-            self._histograms["tokensaver_request_duration_ms"].observe(duration_ms)
-            self._histograms["tokensaver_tokens_per_request"].observe(float(original_tokens))
+            self._histograms["tokenxygen_request_duration_ms"].observe(duration_ms)
+            self._histograms["tokenxygen_tokens_per_request"].observe(float(original_tokens))
 
             if original_tokens > 0:
                 ratio = optimized_tokens / original_tokens
-                self._histograms["tokensaver_compression_ratio"].observe(ratio)
+                self._histograms["tokenxygen_compression_ratio"].observe(ratio)
 
     def to_prometheus(self) -> str:
         """Export all metrics in Prometheus format."""

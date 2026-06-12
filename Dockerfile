@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy project files
 COPY pyproject.toml .
-COPY tokensaver/ tokensaver/
+COPY tokenxygen/ tokenxygen/
 COPY README.md .
 
 # Install package
@@ -33,4 +33,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 EXPOSE 8420 8421 9090
 
 # Run
-CMD ["tokensaver", "serve", "--host", "0.0.0.0", "--port", "8420"]
+CMD ["tokenxygen", "serve", "--host", "0.0.0.0", "--port", "8420"]

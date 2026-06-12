@@ -2,7 +2,7 @@
 
 import pytest
 
-from tokensaver.plugins import (
+from tokenxygen.plugins import (
     CompressionStrategy,
     PluginRegistry,
     DeduplicateToolOutputs,

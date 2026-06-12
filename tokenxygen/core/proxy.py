@@ -11,17 +11,17 @@ import httpx
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from tokensaver.analytics import RequestRecord, _get_analytics
-from tokensaver.budget import BudgetAction, _get_budget_guard
-from tokensaver.cache import _get_cache
-from tokensaver.compress import PromptCompressor, compressor
-from tokensaver.config import settings
-from tokensaver.core import count_tokens, estimate_cost_usd
-from tokensaver.logging import RequestLogger, setup_logging
-from tokensaver.metrics import metrics
-from tokensaver.router import router, RoutingDecision
+from tokenxygen.analytics import RequestRecord, _get_analytics
+from tokenxygen.budget import BudgetAction, _get_budget_guard
+from tokenxygen.cache import _get_cache
+from tokenxygen.compress import PromptCompressor, compressor
+from tokenxygen.config import settings
+from tokenxygen.core import count_tokens, estimate_cost_usd
+from tokenxygen.logging import RequestLogger, setup_logging
+from tokenxygen.metrics import metrics
+from tokenxygen.router import router, RoutingDecision
 
-logger = logging.getLogger("tokensaver")
+logger = logging.getLogger("tokenxygen")
 
 app = FastAPI(
     title="TokenSaver",
@@ -101,7 +101,7 @@ async def _proxy_request(
         cached = cache.get(messages, model)
         if cached is not None:
             logger.info("Cache HIT for model=%s", model)
-            cached["_tokensaver"] = {
+            cached["_tokenxygen"] = {
                 "cache_hit": True,
                 "original_tokens": original_tokens,
                 "optimized_tokens": 0,
@@ -287,7 +287,7 @@ async def proxy_all(request: Request, path: str):
     return await _proxy_request(path, request.method, headers, body, stream=is_stream)
 
 
-@app.get("/tokensaver/stats")
+@app.get("/tokenxygen/stats")
 async def stats():
     """Return TokenSaver analytics."""
     return {
@@ -301,7 +301,7 @@ async def stats():
     }
 
 
-@app.get("/tokensaver/budget")
+@app.get("/tokenxygen/budget")
 async def budget_status():
     """Return current budget status."""
     budget = _get_budget_guard().check()
@@ -316,7 +316,7 @@ async def budget_status():
     }
 
 
-@app.post("/tokensaver/budget/limit")
+@app.post("/tokenxygen/budget/limit")
 async def set_budget_limit(request: Request):
     """Set the daily budget limit."""
     body = await request.json()
@@ -330,7 +330,7 @@ async def set_budget_limit(request: Request):
     return {"daily_limit_usd": limit}
 
 
-@app.post("/tokensaver/cache/clear")
+@app.post("/tokenxygen/cache/clear")
 async def clear_cache():
     """Clear the semantic cache."""
     count = _get_cache().clear()
@@ -350,8 +350,8 @@ async def prometheus_metrics():
     # Update gauge metrics
     cache = _get_cache()
     cache_stats = cache.stats()
-    metrics.gauge("tokensaver_cache_entries", cache_stats["entries"])
-    metrics.gauge("tokensaver_cache_total_hits", cache_stats["total_hits"])
+    metrics.gauge("tokenxygen_cache_entries", cache_stats["entries"])
+    metrics.gauge("tokenxygen_cache_total_hits", cache_stats["total_hits"])
 
     return PlainTextResponse(
         content=metrics.to_prometheus(),

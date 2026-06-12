@@ -2,7 +2,7 @@
 
 import pytest
 
-from tokensaver.router import PromptRouter, PromptTier
+from tokenxygen.router import PromptRouter, PromptTier
 
 
 @pytest.fixture
@@ -55,7 +55,7 @@ def test_custom_model_preserved(router_instance):
 
 
 def test_disabled_router_passes_through():
-    from tokensaver.config import settings
+    from tokenxygen.config import settings
     original = settings.router.enabled
     settings.router.enabled = False
     try:

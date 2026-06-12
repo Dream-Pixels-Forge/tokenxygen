@@ -2,8 +2,8 @@
 
 import pytest
 
-from tokensaver.compress import PromptCompressor
-from tokensaver.core import count_tokens
+from tokenxygen.compress import PromptCompressor
+from tokenxygen.core import count_tokens
 
 
 @pytest.fixture
@@ -72,7 +72,7 @@ def test_compress_normalizes_whitespace(compressor):
 
 
 def test_compression_result_savings():
-    from tokensaver.compress import CompressionResult
+    from tokenxygen.compress import CompressionResult
 
     result = CompressionResult(
         original_tokens=100,

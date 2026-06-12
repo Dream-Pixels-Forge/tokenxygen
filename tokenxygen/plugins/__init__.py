@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
-logger = logging.getLogger("tokensaver.plugins")
+logger = logging.getLogger("tokenxygen.plugins")
 
 
 @dataclass
@@ -94,7 +94,7 @@ class PluginRegistry:
                 continue
             try:
                 spec = importlib.util.spec_from_file_location(
-                    f"tokensaver.plugins.{py_file.stem}", py_file
+                    f"tokenxygen.plugins.{py_file.stem}", py_file
                 )
                 if spec and spec.loader:
                     module = importlib.util.module_from_spec(spec)

@@ -14,8 +14,8 @@ import json
 import re
 from dataclasses import dataclass, field
 
-from tokensaver.config import settings
-from tokensaver.core import count_tokens
+from tokenxygen.config import settings
+from tokenxygen.core import count_tokens
 
 
 @dataclass
@@ -82,7 +82,7 @@ class PromptCompressor:
 
         # Strategy 6: Plugin strategies
         try:
-            from tokensaver.plugins import registry as plugin_registry
+            from tokenxygen.plugins import registry as plugin_registry
             token_count_fn = lambda text: count_tokens(text, model)
             for strategy in plugin_registry.get_enabled(compressed, count_tokens(json.dumps(compressed), model)):
                 try:
@@ -96,7 +96,7 @@ class PromptCompressor:
                         ))
                 except Exception as e:
                     import logging
-                    logging.getLogger("tokensaver").warning("Plugin %s failed: %s", strategy.name, e)
+                    logging.getLogger("tokenxygen").warning("Plugin %s failed: %s", strategy.name, e)
         except ImportError:
             pass
 
@@ -290,7 +290,7 @@ class PromptCompressor:
                     truncated_system.append(msg)
                     budget -= tokens
                 else:
-                    from tokensaver.core import truncate_to_tokens
+                    from tokenxygen.core import truncate_to_tokens
                     truncated_content = truncate_to_tokens(content, budget, model)
                     truncated_system.append({**msg, "content": truncated_content})
                     break
