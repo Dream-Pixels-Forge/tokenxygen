@@ -5,11 +5,8 @@ Exposes metrics at /metrics endpoint for scraping by Prometheus.
 
 from __future__ import annotations
 
-import time
-from collections import defaultdict
 from dataclasses import dataclass, field
 from threading import Lock
-from typing import Optional
 
 
 @dataclass

@@ -13,17 +13,13 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
 
 from tokenxygen.providers import (
     Provider,
-    ProviderConfig,
     MODEL_REGISTRY,
-    get_adapter,
-    get_cheapest_provider,
 )
 
 logger = logging.getLogger("tokenxygen.failover")
@@ -258,7 +254,6 @@ def get_pool() -> ProviderPool:
     """Get the global provider pool."""
     global _pool
     if _pool is None:
-        from tokenxygen.config import settings
         _pool = ProviderPool(
             primary_provider=Provider.OPENAI,
             fallback_providers=[Provider.ANTHROPIC, Provider.OLLAMA],

@@ -177,7 +177,7 @@ class PromptCompressor:
                 original_tokens=original_tokens,
                 compressed_tokens=compressed_tokens,
                 strategy="comment_strip",
-                details=[f"Stripped code comments"],
+                details=["Stripped code comments"],
             )
         return compressed, result
 

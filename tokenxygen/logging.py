@@ -16,7 +16,6 @@ import time
 import uuid
 from contextvars import ContextVar
 from datetime import datetime, timezone
-from typing import Any, Optional
 
 # Context variable for request correlation
 request_id_var: ContextVar[str] = ContextVar("request_id", default="")

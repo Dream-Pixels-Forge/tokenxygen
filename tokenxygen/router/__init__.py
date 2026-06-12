@@ -108,7 +108,7 @@ class PromptRouter:
         reason = f"tier_{tier.name.lower()}"
 
         if routed != requested_model:
-            reason += f"_downgraded"
+            reason += "_downgraded"
 
         return RoutingDecision(
             original_model=requested_model,

@@ -2,10 +2,6 @@
 
 from __future__ import annotations
 
-import json
-import subprocess
-import sys
-import time
 
 import click
 from rich.console import Console
@@ -324,7 +320,7 @@ def compress(text: str):
 @cli.command()
 def providers():
     """List available models and providers."""
-    from tokenxygen.providers import MODEL_REGISTRY, Provider
+    from tokenxygen.providers import MODEL_REGISTRY
 
     table = Table(title="🔌 Available Models", box=box.ROUNDED)
     table.add_column("Model", style="cyan")
@@ -373,7 +369,7 @@ def plugins():
 @click.option("--tokens", "token_count", default=1000, type=int, help="Token count to compare")
 def compare(model_a: str, model_b: str, token_count: int):
     """Compare cost between two models."""
-    from tokenxygen.providers import MODEL_REGISTRY, get_cheapest_provider
+    from tokenxygen.providers import MODEL_REGISTRY
 
     a = MODEL_REGISTRY.get(model_a)
     b = MODEL_REGISTRY.get(model_b)
@@ -489,7 +485,6 @@ def failover():
 def deep_compress(text: str):
     """Show advanced LLMLingua-2 compression results."""
     from tokenxygen.compress.advanced import llmlingua
-    from tokenxygen.core import count_tokens
 
     compressed, stats = llmlingua.compress(text, compression_ratio=0.5)
 
@@ -497,7 +492,7 @@ def deep_compress(text: str):
     console.print(f"Original:   [dim]{stats.original_tokens} tokens[/]")
     console.print(f"Compressed: [green]{stats.compressed_tokens} tokens[/]")
     console.print(f"Saved:      [bold green]{stats.tokens_removed} tokens ({stats.savings_pct:.1f}%)[/]")
-    console.print(f"\n[dim]Compressed text:[/]")
+    console.print("\n[dim]Compressed text:[/]")
     console.print(compressed[:500] + ("..." if len(compressed) > 500 else ""))
 
 

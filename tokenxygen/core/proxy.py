@@ -17,9 +17,8 @@ from tokenxygen.cache import _get_cache
 from tokenxygen.compress import PromptCompressor, compressor
 from tokenxygen.config import settings
 from tokenxygen.core import count_tokens, estimate_cost_usd
-from tokenxygen.logging import RequestLogger, setup_logging
 from tokenxygen.metrics import metrics
-from tokenxygen.router import router, RoutingDecision
+from tokenxygen.router import router
 
 # Thread-safe in-memory rate limiter
 import threading

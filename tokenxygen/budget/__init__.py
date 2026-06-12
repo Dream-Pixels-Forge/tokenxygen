@@ -12,7 +12,6 @@ import sqlite3
 import time
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
 
 from tokenxygen.config import settings, today_start_timestamp
 
@@ -136,7 +135,7 @@ class BudgetGuard:
 
         # Would this request push us over?
         if estimated_cost > 0 and (utilization + estimated_cost / self.daily_limit) >= 1.0:
-            return BudgetAction.BLOCK, f"would_exceed_limit"
+            return BudgetAction.BLOCK, "would_exceed_limit"
 
         # Aggressive compress: >95%
         if utilization >= 0.95:

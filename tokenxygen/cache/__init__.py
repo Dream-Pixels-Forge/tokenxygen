@@ -6,18 +6,22 @@ Stores (prompt_embedding → response) for semantic similarity.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 import time
-from dataclasses import dataclass
 from typing import Optional
 
 import logging
 
 from tokenxygen.config import settings
-from tokenxygen.core import content_hash, count_tokens
 
 logger = logging.getLogger("tokenxygen.cache")
+
+
+def content_hash(text: str) -> str:
+    """Fast content hash for deduplication."""
+    return hashlib.sha256(text.encode()).hexdigest()[:16]
 
 
 class SemanticCache:

@@ -15,7 +15,6 @@ import re
 from dataclasses import dataclass
 from typing import Optional
 
-from tokenxygen.config import settings
 from tokenxygen.core import count_tokens
 
 
@@ -54,9 +53,9 @@ class LLMLinguaCompressor:
         """Check if LLMLingua-2 is installed and available."""
         if self._llmlingua_available is None:
             try:
-                import llmlingua2
-                self._llmlingua_available = True
-            except ImportError:
+                import importlib.util
+                self._llmlingua_available = importlib.util.find_spec("llmlingua2") is not None
+            except Exception:
                 self._llmlingua_available = False
         return self._llmlingua_available
 
@@ -234,7 +233,7 @@ class LLMLinguaCompressor:
 
         # Strategy 4: Remove blank lines
         lines = compressed.split("\n")
-        lines = [l for l in lines if l.strip() or lines.index(l) < 3]
+        lines = [line for line in lines if line.strip() or lines.index(line) < 3]
         compressed = "\n".join(lines)
 
         compressed_tokens = count_tokens(compressed)

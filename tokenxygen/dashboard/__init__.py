@@ -56,7 +56,6 @@ async def api_history(days: int = 30):
 async def api_budget():
     """Budget status."""
     from tokenxygen.budget import _get_budget_guard
-    from tokenxygen.config import settings
 
     budget = _get_budget_guard().check()
     return {

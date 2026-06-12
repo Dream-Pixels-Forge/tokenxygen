@@ -206,7 +206,7 @@ class CompressFileDiffs(CompressionStrategy):
         )
 
     def _is_diff(self, text: str) -> bool:
-        diff_lines = [l for l in text.split("\n") if l.startswith("+") or l.startswith("-")]
+        diff_lines = [line for line in text.split("\n") if line.startswith("+") or line.startswith("-")]
         return len(diff_lines) > 10
 
     def _compress_diff(self, diff: str) -> str:

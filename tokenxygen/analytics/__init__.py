@@ -5,12 +5,10 @@ from __future__ import annotations
 import sqlite3
 import time
 from dataclasses import dataclass
-from typing import Optional
 
 import logging
 
 from tokenxygen.config import settings, today_start_timestamp
-from tokenxygen.core import count_tokens, estimate_cost_usd
 
 logger = logging.getLogger("tokenxygen.analytics")
 
