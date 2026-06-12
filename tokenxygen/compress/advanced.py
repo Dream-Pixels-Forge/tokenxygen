@@ -183,6 +183,27 @@ class LLMLinguaCompressor:
             # Fallback to rule-based
             return self._compress_rule_based(text, original_tokens, compression_ratio)
 
+    # Rule-based compression constants
+    FILLER_PATTERNS: list[str] = [
+        r"\bplease\b", r"\bthank you\b", r"\bthanks\b",
+        r"\byou know\b", r"\bbasically\b", r"\bactually\b",
+        r"\bliterally\b", r"\bjust\b",
+        r"\bkind of\b", r"\bsort of\b", r"\bI think\b",
+        r"\bI believe\b", r"\bin my opinion\b",
+    ]
+    
+    SIMPLIFICATION_PATTERNS: list[tuple[str, str]] = [
+        (r"\bin order to\b", "to"),
+        (r"\bdue to the fact that\b", "because"),
+        (r"\bat this point in time\b", "now"),
+        (r"\bfor the purpose of\b", "for"),
+        (r"\bin the event that\b", "if"),
+        (r"\bwith regard to\b", "about"),
+        (r"\bin spite of the fact\b", "although"),
+        (r"\ba large number of\b", "many"),
+        (r"\ba significant amount of\b", "much"),
+    ]
+
     def _compress_rule_based(
         self,
         text: str,
@@ -200,29 +221,11 @@ class LLMLinguaCompressor:
         compressed = text
 
         # Strategy 1: Remove filler words
-        fillers = [
-            r"\bplease\b", r"\bthank you\b", r"\bthanks\b",
-            r"\byou know\b", r"\bbasically\b", r"\bactually\b",
-            r"\bbasically\b", r"\bliterally\b", r"\bjust\b",
-            r"\bkind of\b", r"\bsort of\b", r"\bI think\b",
-            r"\bI believe\b", r"\bin my opinion\b",
-        ]
-        for pattern in fillers:
+        for pattern in self.FILLER_PATTERNS:
             compressed = re.sub(pattern, "", compressed, flags=re.IGNORECASE)
 
         # Strategy 2: Simplify verbose expressions
-        simplifications = [
-            (r"\bin order to\b", "to"),
-            (r"\bdue to the fact that\b", "because"),
-            (r"\bat this point in time\b", "now"),
-            (r"\bfor the purpose of\b", "for"),
-            (r"\bin the event that\b", "if"),
-            (r"\bwith regard to\b", "about"),
-            (r"\bin spite of the fact\b", "although"),
-            (r"\ba large number of\b", "many"),
-            (r"\ba significant amount of\b", "much"),
-        ]
-        for pattern, replacement in simplifications:
+        for pattern, replacement in self.SIMPLIFICATION_PATTERNS:
             compressed = re.sub(pattern, replacement, compressed, flags=re.IGNORECASE)
 
         # Strategy 3: Remove excessive whitespace
