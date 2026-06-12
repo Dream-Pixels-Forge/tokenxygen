@@ -86,7 +86,7 @@ def setup_logging(
     json_format: bool = False,
     log_file: str | None = None,
 ) -> None:
-    """Configure logging for TokenSaver.
+    """Configure logging for Tokenxygen.
 
     Args:
         level: Log level (DEBUG, INFO, WARNING, ERROR)

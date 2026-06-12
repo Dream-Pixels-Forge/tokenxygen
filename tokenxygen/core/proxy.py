@@ -1,4 +1,4 @@
-"""TokenSaver proxy server — OpenAI-compatible API that optimizes tokens in-flight."""
+"""Tokenxygen proxy server — OpenAI-compatible API that optimizes tokens in-flight."""
 
 from __future__ import annotations
 
@@ -24,8 +24,8 @@ from tokenxygen.router import router, RoutingDecision
 logger = logging.getLogger("tokenxygen")
 
 app = FastAPI(
-    title="TokenSaver",
-    description="Universal token optimizer for coding agents",
+    title="Tokenxygen",
+    description="Universal token optimizer for coding agents — save 40-70% on LLM costs",
     version="0.2.0",
 )
 

@@ -1,4 +1,4 @@
-"""Configuration for TokenSaver."""
+"""Configuration for Tokenxygen."""
 
 from __future__ import annotations
 

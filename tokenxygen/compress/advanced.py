@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from tokenxygen.config import settings
-from tokenxygen.core import count_tokens, get_encoding
+from tokenxygen.core import count_tokens
 
 
 @dataclass

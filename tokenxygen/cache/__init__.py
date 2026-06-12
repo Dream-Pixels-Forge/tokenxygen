@@ -16,15 +16,6 @@ from tokenxygen.config import settings
 from tokenxygen.core import content_hash, count_tokens
 
 
-@dataclass
-class CacheEntry:
-    key: str
-    response: dict
-    tokens_saved: int
-    created_at: float
-    hit_count: int = 0
-
-
 class SemanticCache:
     """SQLite-backed semantic cache with optional embedding similarity."""
 

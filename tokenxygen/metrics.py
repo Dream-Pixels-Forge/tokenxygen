@@ -1,4 +1,4 @@
-"""Prometheus metrics for monitoring TokenSaver in production.
+"""Prometheus metrics for monitoring Tokenxygen in production.
 
 Exposes metrics at /metrics endpoint for scraping by Prometheus.
 """
@@ -74,7 +74,7 @@ class MetricsCollector:
         self._init_metrics()
 
     def _init_metrics(self) -> None:
-        """Initialize standard TokenSaver metrics."""
+        """Initialize standard Tokenxygen metrics."""
         # Counters
         self.counter("tokenxygen_requests_total", "Total requests processed")
         self.counter("tokenxygen_cache_hits_total", "Total cache hits")
