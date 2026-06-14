@@ -25,11 +25,13 @@ class TestRateLimiting:
 
     def test_blocks_requests_over_limit(self, client):
         """Requests over limit should be blocked with 429."""
-        from tokenxygen.core.proxy import RATE_LIMIT_REQUESTS
-        
+        from tokenxygen.config import settings
+
+        limit = settings.proxy.rate_limit_requests
+
         # Fill up the rate limit store
         ip = "testclient"
-        old_store = {ip: [time.time()] * RATE_LIMIT_REQUESTS}
+        old_store = {ip: [time.time()] * limit}
         with patch("tokenxygen.core.proxy._rate_limit_store", old_store):
             # Use catch-all route which has rate limiting
             response = client.post(
@@ -40,11 +42,13 @@ class TestRateLimiting:
 
     def test_rate_limit_window_expires(self, client):
         """Old entries should be cleaned up after window expires."""
-        from tokenxygen.core.proxy import RATE_LIMIT_WINDOW
-        
+        from tokenxygen.config import settings
+
+        window = settings.proxy.rate_limit_window
+
         # Add old entries
         ip = "testclient"
-        old_time = time.time() - RATE_LIMIT_WINDOW - 1
+        old_time = time.time() - window - 1
         old_store = {ip: [old_time] * 5}
         with patch("tokenxygen.core.proxy._rate_limit_store", old_store):
             response = client.get("/tokenxygen/stats")

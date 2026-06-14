@@ -31,7 +31,7 @@ class CacheConfig(BaseSettings):
     similarity_threshold: float = DEFAULT_CACHE_SIMILARITY_THRESHOLD
     max_entries: int = DEFAULT_CACHE_MAX_ENTRIES
     ttl_seconds: int = DEFAULT_CACHE_TTL_SECONDS
-    db_path: str = str(DATA_DIR / "cache.db")
+    db_path: str = str(DATA_DIR / "cache" / "cache.db")
 
 
 class CompressConfig(BaseSettings):
@@ -65,7 +65,7 @@ class AnalyticsConfig(BaseSettings):
     """Analytics / tracking settings."""
 
     enabled: bool = True
-    db_path: str = str(DATA_DIR / "analytics.db")
+    db_path: str = str(DATA_DIR / "analytics" / "analytics.db")
 
 
 class ProxyConfig(BaseSettings):
@@ -76,7 +76,11 @@ class ProxyConfig(BaseSettings):
     # Upstream API base URL (where to forward unoptimized requests)
     upstream_base_url: str = "https://api.openai.com/v1"
     api_key: str = Field(default_factory=lambda: os.environ.get("OPENAI_API_KEY", ""))
+    admin_key: str = Field(default_factory=lambda: os.environ.get("TOKENXYGEN_ADMIN_KEY", ""))
     log_level: str = "INFO"
+    # Rate limiting
+    rate_limit_requests: int = 100
+    rate_limit_window: float = 60.0
 
 
 class Settings(BaseSettings):
@@ -91,6 +95,8 @@ class Settings(BaseSettings):
 
     def ensure_dirs(self) -> None:
         DATA_DIR.mkdir(parents=True, exist_ok=True)
+        (DATA_DIR / "analytics").mkdir(parents=True, exist_ok=True)
+        (DATA_DIR / "cache").mkdir(parents=True, exist_ok=True)
 
 
 settings = Settings()

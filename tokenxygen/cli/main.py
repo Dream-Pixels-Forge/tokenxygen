@@ -265,13 +265,21 @@ def budget_status():
 
 @cli.command()
 @click.option("--clear-cache", is_flag=True, help="Also clear the cache")
-def reset(clear_cache: bool):
+@click.option("--force", is_flag=True, help="Skip confirmation prompt")
+def reset(clear_cache: bool, force: bool):
     """Reset all analytics data."""
     from tokenxygen.cache import _get_cache
 
     import os
     from tokenxygen.config import settings
-    os.remove(settings.analytics.db_path)
+
+    if not force:
+        from click import confirm
+        confirm("This will delete all analytics data. Continue?", abort=True)
+
+    db_path = settings.analytics.db_path
+    if os.path.exists(db_path):
+        os.remove(db_path)
 
     if clear_cache:
         _get_cache().clear()

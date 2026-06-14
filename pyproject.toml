@@ -14,7 +14,7 @@ requires-python = ">=3.10"
 authors = [{ name = "Tokenxygen" }]
 keywords = ["llm", "tokens", "optimizer", "coding-agent", "claude", "cursor", "cost"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -36,7 +36,7 @@ dependencies = [
 cache = ["chromadb>=0.5.0"]
 compress = ["sentence-transformers>=2.5.0"]
 full = ["chromadb>=0.5.0", "sentence-transformers>=2.5.0"]
-dev = ["pytest>=8.0", "pytest-asyncio>=0.23.0", "ruff>=0.4.0"]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23.0", "pytest-timeout>=2.4.0", "ruff>=0.4.0"]
 
 [project.scripts]
 tokenxygen = "tokenxygen.cli.main:cli"

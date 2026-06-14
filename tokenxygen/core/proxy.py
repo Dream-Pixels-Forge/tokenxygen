@@ -5,7 +5,8 @@ from __future__ import annotations
 import json
 import logging
 import time
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 import httpx
 from fastapi import FastAPI, Request, Response
@@ -24,40 +25,45 @@ from tokenxygen.router import router
 import threading
 _rate_limit_lock = threading.Lock()
 _rate_limit_store: dict[str, list[float]] = {}
-RATE_LIMIT_REQUESTS = 100  # per minute
-RATE_LIMIT_WINDOW = 60.0  # seconds
+
+_MAX_BODY_SIZE = 10 * 1024 * 1024  # 10 MB
 
 logger = logging.getLogger("tokenxygen")
-
-app = FastAPI(
-    title="Tokenxygen",
-    description="Universal token optimizer for coding agents — save 40-70% on LLM costs",
-    version="0.5.0",
-)
 
 # Shared HTTP client for upstream requests
 _client: httpx.AsyncClient | None = None
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan — manages startup/shutdown."""
+    global _client, _rate_limit_store
+    _rate_limit_store = {}
+    yield
+    if _client and not _client.is_closed:
+        await _client.aclose()
+    _client = None
+
+app = FastAPI(
+    title="Tokenxygen",
+    description="Universal token optimizer for coding agents — save 40-70% on LLM costs",
+    version="0.5.0",
+    lifespan=lifespan,
+)
+
+
 async def get_client() -> httpx.AsyncClient:
     global _client
     if _client is None or _client.is_closed:
-        # 30s connect, 120s read timeout
         timeout = httpx.Timeout(connect=30.0, read=120.0, write=30.0, pool=30.0)
         _client = httpx.AsyncClient(timeout=timeout)
     return _client
 
 
-@app.on_event("shutdown")
-async def shutdown():
-    global _client
-    if _client and not _client.is_closed:
-        await _client.aclose()
-
-
 # ---------------------------------------------------------------------------
 # Core proxy logic
 # ---------------------------------------------------------------------------
+
 
 async def _proxy_request(
     path: str,
@@ -320,25 +326,30 @@ def _check_rate_limit(client_ip: str) -> bool:
     with _rate_limit_lock:
         if client_ip not in _rate_limit_store:
             _rate_limit_store[client_ip] = []
-        
+
         # Remove old entries
+        window = settings.proxy.rate_limit_window
         _rate_limit_store[client_ip] = [
             t for t in _rate_limit_store[client_ip]
-            if now - t < RATE_LIMIT_WINDOW
+            if now - t < window
         ]
-        
-        if len(_rate_limit_store[client_ip]) >= RATE_LIMIT_REQUESTS:
+
+        if len(_rate_limit_store[client_ip]) >= settings.proxy.rate_limit_requests:
             return False
-        
+
         _rate_limit_store[client_ip].append(now)
         return True
 
 
 def _check_admin_auth(request: Request) -> bool:
-    """Check for admin API key in request header."""
-    admin_key = settings.proxy.api_key
+    """Check for admin API key in request header.
+
+    Returns True only if a valid admin key is provided.
+    Denies access when no admin key is configured (fail-secure default).
+    """
+    admin_key = settings.proxy.admin_key
     if not admin_key:
-        return True  # No key configured = open access
+        return False  # No key configured = deny access (fail-secure)
     provided = request.headers.get("X-Admin-Key", "")
     return provided == admin_key
 
@@ -436,12 +447,12 @@ async def proxy_all(request: Request, path: str):
     if not _check_rate_limit(client_ip):
         return JSONResponse(
             status_code=429,
-            content={"error": "Rate limit exceeded. Max 100 requests per minute."},
+            content={"error": f"Rate limit exceeded. Max {settings.proxy.rate_limit_requests} requests per {int(settings.proxy.rate_limit_window)} seconds."},
         )
     
     # Request size limit (10MB)
     body = await request.body()
-    if len(body) > 10 * 1024 * 1024:
+    if len(body) > _MAX_BODY_SIZE:
         return JSONResponse(
             status_code=413,
             content={"error": "Request too large. Max 10MB."},
