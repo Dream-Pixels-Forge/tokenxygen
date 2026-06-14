@@ -1,5 +1,13 @@
 # 🚀 Tokenxygen
 
+<p>
+  <a href="https://pypi.org/project/tokenxygen/"><img src="https://img.shields.io/pypi/v/tokenxygen?logo=pypi&label=PyPI" alt="PyPI"></a>
+  <a href="https://pypi.org/project/tokenxygen/"><img src="https://img.shields.io/pypi/pyversions/tokenxygen?logo=python" alt="Python"></a>
+  <img src="https://img.shields.io/pypi/l/tokenxygen" alt="License">
+  <img src="https://img.shields.io/github/languages/top/Dream-Pixels-Forge/tokenxygen" alt="Language">
+  <img src="https://img.shields.io/github/last-commit/Dream-Pixels-Forge/tokenxygen?logo=github" alt="Last commit">
+</p>
+
 **Universal token optimizer for coding agents — save 40-70% on LLM costs.**
 
 Tokenxygen is a drop-in proxy that sits between your coding agent (Claude Code, Cursor, Windsurf, Codex) and LLM APIs, automatically optimizing tokens in-flight. Zero code changes required.
