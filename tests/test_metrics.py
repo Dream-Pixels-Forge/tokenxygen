@@ -1,7 +1,5 @@
 """Tests for Prometheus metrics."""
 
-import pytest
-
 from tokenxygen.metrics import MetricsCollector, Counter, Histogram
 
 

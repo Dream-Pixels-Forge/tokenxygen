@@ -1,9 +1,8 @@
 """Tests for the budget guard."""
 
-import time
 import pytest
 
-from tokenxygen.budget import BudgetGuard, BudgetAction
+from tokenxygen.budget import BudgetGuard, BudgetAction, DatabasePool
 
 
 @pytest.fixture
@@ -27,6 +26,7 @@ def tmp_budget(tmp_path):
     guard.daily_limit = 10.0
     guard.alert_threshold = 0.8
     guard.db_path = db_path
+    guard._pool = DatabasePool(db_path)
     return guard
 
 

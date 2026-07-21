@@ -1,7 +1,5 @@
 """Tests for multi-provider support."""
 
-import pytest
-
 from tokenxygen.providers import (
     OpenAIAdapter,
     AnthropicAdapter,

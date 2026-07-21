@@ -8,11 +8,12 @@ from __future__ import annotations
 
 import hashlib
 import json
-import sqlite3
-import time
-from typing import Optional
-
 import logging
+import sqlite3
+import threading
+import time
+from contextlib import contextmanager
+from typing import Optional
 
 from tokenxygen.config import settings
 
@@ -24,19 +25,20 @@ def content_hash(text: str) -> str:
     return hashlib.sha256(text.encode()).hexdigest()[:16]
 
 
-class SemanticCache:
-    """SQLite-backed semantic cache with optional embedding similarity."""
+class DatabasePool:
+    """Thread-safe SQLite connection pool with WAL mode."""
 
-    def __init__(self) -> None:
-        self.db_path = settings.cache.db_path
-        self.threshold = settings.cache.similarity_threshold
-        self.max_entries = settings.cache.max_entries
-        self.ttl = settings.cache.ttl_seconds
+    def __init__(self, db_path: str) -> None:
+        self._path = db_path
+        self._local = threading.local()
+        self._lock = threading.Lock()
         self._init_db()
 
     def _init_db(self) -> None:
-        with sqlite3.connect(self.db_path) as conn:
+        """Initialize database schema."""
+        with self._get_connection() as conn:
             conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA busy_timeout=5000")
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS cache (
                     key TEXT PRIMARY KEY,
@@ -58,6 +60,33 @@ class SemanticCache:
             """)
             conn.commit()
 
+    def _get_connection(self) -> sqlite3.Connection:
+        """Get or create a thread-local connection."""
+        if not hasattr(self._local, 'conn') or self._local.conn is None:
+            self._local.conn = sqlite3.connect(self._path, timeout=10)
+        return self._local.conn
+
+    @contextmanager
+    def connection(self):
+        """Context manager for database operations with automatic rollback on error."""
+        conn = self._get_connection()
+        try:
+            yield conn
+        except Exception:
+            conn.rollback()
+            raise
+
+
+class SemanticCache:
+    """SQLite-backed semantic cache with optional embedding similarity."""
+
+    def __init__(self) -> None:
+        self.db_path = settings.cache.db_path
+        self.threshold = settings.cache.similarity_threshold
+        self.max_entries = settings.cache.max_entries
+        self.ttl = settings.cache.ttl_seconds
+        self._pool = DatabasePool(self.db_path)
+
     def get(self, messages: list[dict], model: str = "default") -> Optional[dict]:
         """Look up cache for matching messages.
 
@@ -65,39 +94,35 @@ class SemanticCache:
         """
         key = self._build_key(messages, model)
 
-        for attempt in range(3):
-            try:
-                with sqlite3.connect(self.db_path) as conn:
-                    row = conn.execute(
-                        "SELECT response, created_at, hit_count FROM cache WHERE key = ?",
-                        (key,),
-                    ).fetchone()
+        try:
+            with self._pool.connection() as conn:
+                row = conn.execute(
+                    "SELECT response, created_at, hit_count FROM cache WHERE key = ?",
+                    (key,),
+                ).fetchone()
 
-                    if row is None:
-                        return None
-
-                    response_json, created_at, hit_count = row
-
-                    # Check TTL
-                    if time.time() - created_at > self.ttl:
-                        conn.execute("DELETE FROM cache WHERE key = ?", (key,))
-                        conn.commit()
-                        return None
-
-                    # Update hit count
-                    conn.execute(
-                        "UPDATE cache SET hit_count = ? WHERE key = ?",
-                        (hit_count + 1, key),
-                    )
-                    conn.commit()
-
-                    return json.loads(response_json)
-            except sqlite3.OperationalError as e:
-                logger.warning("Cache get attempt %d failed: %s", attempt + 1, e)
-                if attempt == 2:
+                if row is None:
                     return None
-                time.sleep(0.1 * (attempt + 1))
-        return None
+
+                response_json, created_at, hit_count = row
+
+                # Check TTL
+                if time.time() - created_at > self.ttl:
+                    conn.execute("DELETE FROM cache WHERE key = ?", (key,))
+                    conn.commit()
+                    return None
+
+                # Update hit count
+                conn.execute(
+                    "UPDATE cache SET hit_count = ? WHERE key = ?",
+                    (hit_count + 1, key),
+                )
+                conn.commit()
+
+                return json.loads(response_json)
+        except sqlite3.OperationalError as e:
+            logger.warning("Cache get failed: %s", e)
+            return None
 
     def put(
         self,
@@ -110,41 +135,36 @@ class SemanticCache:
         key = self._build_key(messages, model)
         now = time.time()
 
-        for attempt in range(3):
-            try:
-                with sqlite3.connect(self.db_path) as conn:
+        try:
+            with self._pool.connection() as conn:
+                conn.execute(
+                    """
+                    INSERT OR REPLACE INTO cache
+                    (key, prompt_hash, response, tokens_saved, created_at, hit_count)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (key, content_hash(str(messages)), json.dumps(response), tokens_used, now, 0),
+                )
+
+                # Evict old entries if over limit
+                count = conn.execute("SELECT COUNT(*) FROM cache").fetchone()[0]
+                if count > self.max_entries:
                     conn.execute(
                         """
-                        INSERT OR REPLACE INTO cache
-                        (key, prompt_hash, response, tokens_saved, created_at, hit_count)
-                        VALUES (?, ?, ?, ?, ?, ?)
+                        DELETE FROM cache WHERE key IN (
+                            SELECT key FROM cache ORDER BY created_at ASC LIMIT ?
+                        )
                         """,
-                        (key, content_hash(str(messages)), json.dumps(response), tokens_used, now, 0),
+                        (count - self.max_entries + 1000,),
                     )
 
-                    # Evict old entries if over limit
-                    count = conn.execute("SELECT COUNT(*) FROM cache").fetchone()[0]
-                    if count > self.max_entries:
-                        conn.execute(
-                            """
-                            DELETE FROM cache WHERE key IN (
-                                SELECT key FROM cache ORDER BY created_at ASC LIMIT ?
-                            )
-                            """,
-                            (count - self.max_entries + 1000,),
-                        )
-
-                    conn.commit()
-                return
-            except sqlite3.OperationalError as e:
-                logger.warning("Cache put attempt %d failed: %s", attempt + 1, e)
-                if attempt == 2:
-                    return
-                time.sleep(0.1 * (attempt + 1))
+                conn.commit()
+        except sqlite3.OperationalError as e:
+            logger.warning("Cache put failed: %s", e)
 
     def stats(self) -> dict:
         """Return cache statistics."""
-        with sqlite3.connect(self.db_path) as conn:
+        with self._pool.connection() as conn:
             row = conn.execute(
                 "SELECT COUNT(*), SUM(hit_count), SUM(tokens_saved) FROM cache"
             ).fetchone()
@@ -157,7 +177,7 @@ class SemanticCache:
 
     def clear(self) -> int:
         """Clear all cache entries. Returns count cleared."""
-        with sqlite3.connect(self.db_path) as conn:
+        with self._pool.connection() as conn:
             count = conn.execute("SELECT COUNT(*) FROM cache").fetchone()[0]
             conn.execute("DELETE FROM cache")
             conn.commit()
@@ -166,10 +186,9 @@ class SemanticCache:
     def _build_key(self, messages: list[dict], model: str) -> str:
         """Build a deterministic cache key from chat messages.
         
-        Uses SHA-256 (128-bit hex) to minimize collision risk.
+        Uses SHA-256 (256-bit hex) to minimize collision risk.
         """
         # Normalize messages: sort keys, strip whitespace
-        import hashlib
         normalized = []
         for msg in messages:
             normalized.append({
@@ -177,18 +196,19 @@ class SemanticCache:
                 "content": msg.get("content", ""),
             })
         raw = json.dumps(normalized, sort_keys=True, separators=(",", ":"))
-        # Use SHA-256 for collision resistance
-        key_hash = hashlib.sha256(raw.encode()).hexdigest()[:32]
+        # Use full SHA-256 for maximum collision resistance
+        key_hash = hashlib.sha256(raw.encode()).hexdigest()
         return f"{model}:{key_hash}"
 
 
-# Lazy singleton
-def _get_cache() -> SemanticCache:
-    global cache
-    if "cache" not in globals() or cache is None:
-        settings.ensure_dirs()
-        cache = SemanticCache()
-    return cache
+# Lazy singleton with clean naming
+_cache_instance: SemanticCache | None = None
 
-# Module-level accessor
-cache = None  # type: ignore[assignment]
+
+def _get_cache() -> SemanticCache:
+    """Get or create the singleton cache instance."""
+    global _cache_instance
+    if _cache_instance is None:
+        settings.ensure_dirs()
+        _cache_instance = SemanticCache()
+    return _cache_instance

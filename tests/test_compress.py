@@ -3,7 +3,6 @@
 import pytest
 
 from tokenxygen.compress import PromptCompressor
-from tokenxygen.core import count_tokens
 
 
 @pytest.fixture

@@ -1,6 +1,10 @@
-# 🚀 Tokenxygen
+<div align="center">
+  <img src="assets/banner.png" alt="Tokenxygen Banner" width="100%">
+</div>
 
-<p>
+<h1 align="center">🚀 Tokenxygen</h1>
+
+<p align="center">
   <a href="https://pypi.org/project/tokenxygen/"><img src="https://img.shields.io/pypi/v/tokenxygen?logo=pypi&label=PyPI" alt="PyPI"></a>
   <a href="https://pypi.org/project/tokenxygen/"><img src="https://img.shields.io/pypi/pyversions/tokenxygen?logo=python" alt="Python"></a>
   <img src="https://img.shields.io/pypi/l/tokenxygen" alt="License">
@@ -8,9 +12,9 @@
   <img src="https://img.shields.io/github/last-commit/Dream-Pixels-Forge/tokenxygen?logo=github" alt="Last commit">
 </p>
 
-**Universal token optimizer for coding agents — save 40-70% on LLM costs.**
+<p align="center"><strong>Universal token optimizer for coding agents — save 40-70% on LLM costs.</strong></p>
 
-Tokenxygen is a drop-in proxy that sits between your coding agent (Claude Code, Cursor, Windsurf, Codex) and LLM APIs, automatically optimizing tokens in-flight. Zero code changes required.
+<p align="center">Tokenxygen is a drop-in proxy that sits between your coding agent (Claude Code, Cursor, Windsurf, Codex) and LLM APIs, automatically optimizing tokens in-flight. Zero code changes required.
 
 ```
 ┌─────────────┐     ┌────────────────┐     ┌──────────┐
@@ -72,6 +76,32 @@ docker compose up -d
 # - Proxy: http://localhost:8420
 # - Dashboard: http://localhost:8421
 # - Prometheus: http://localhost:9091
+```
+
+## 🛡️ Security Features
+
+Tokenxygen includes comprehensive security hardening:
+
+| Feature | Description |
+|---------|-------------|
+| **SSRF Prevention** | Blocks requests to localhost, private IPs, and non-HTTP protocols |
+| **Rate Limiting** | Per-IP sliding window with Redis support for distributed deployments |
+| **Security Headers** | CSP, HSTS, X-Content-Type-Options, X-Frame-Options, and more |
+| **Admin Authentication** | API key protection for sensitive endpoints |
+| **Request Validation** | Path traversal and null byte injection prevention |
+| **Size Limits** | 10MB maximum request body |
+| **Secure Logging** | Authorization headers never logged; correlation IDs for audit trails |
+
+### Environment Variables
+
+```bash
+# Security settings
+export TOKENXYGEN_ADMIN_KEY="your-admin-api-key"  # Protect admin endpoints
+export TOKENXYGEN_REDIS_URL="redis://localhost:6379/0"  # Distributed rate limiting
+
+# Production settings
+export OPENAI_BASE_URL="http://localhost:8420/v1"
+export OPENAI_API_KEY="sk-..."
 ```
 
 ## 📦 Installation
@@ -191,10 +221,17 @@ X-Tokenxygen-Strategies: file_dedup,plugin:compress_diffs
 ```python
 from tokenxygen.config import settings
 
+# Core settings
 settings.cache.enabled = True
 settings.compress.aggressiveness = 0.4
 settings.router.enabled = True
 settings.budget.daily_limit_usd = 20.0
+
+# Security settings
+settings.proxy.enable_hsts = True  # Enable when behind HTTPS proxy
+settings.proxy.cors_origins = ["https://yourdomain.com"]  # CORS origins
+settings.proxy.trust_forwarded_headers = True  # When behind reverse proxy
+settings.proxy.redis_url = "redis://localhost:6379/0"  # Distributed rate limiting
 ```
 
 ## 🧪 Development

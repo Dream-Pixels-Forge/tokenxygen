@@ -1,7 +1,5 @@
 """Tests for the plugin system."""
 
-import pytest
-
 from tokenxygen.plugins import (
     CompressionStrategy,
     PluginRegistry,

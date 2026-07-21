@@ -9,7 +9,9 @@ When approaching the limit:
 from __future__ import annotations
 
 import sqlite3
+import threading
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import Enum
 
@@ -33,6 +35,28 @@ class BudgetStatus:
     reason: str
 
 
+class DatabasePool:
+    """Thread-safe SQLite connection pool."""
+
+    def __init__(self, db_path: str) -> None:
+        self._path = db_path
+        self._local = threading.local()
+
+    def _get_connection(self) -> sqlite3.Connection:
+        if not hasattr(self._local, 'conn') or self._local.conn is None:
+            self._local.conn = sqlite3.connect(self._path, timeout=10)
+        return self._local.conn
+
+    @contextmanager
+    def connection(self):
+        conn = self._get_connection()
+        try:
+            yield conn
+        except Exception:
+            conn.rollback()
+            raise
+
+
 class BudgetGuard:
     """Track spending and enforce budget limits."""
 
@@ -40,6 +64,7 @@ class BudgetGuard:
         self.daily_limit = settings.budget.daily_limit_usd
         self.alert_threshold = settings.budget.alert_threshold
         self.db_path = settings.analytics.db_path
+        self._pool = DatabasePool(self.db_path)
 
     def check(self, estimated_cost: float = 0.0) -> BudgetStatus:
         """Check budget status and determine action.
@@ -68,7 +93,7 @@ class BudgetGuard:
         now = time.time()
         today_start = today_start_timestamp()
 
-        with sqlite3.connect(self.db_path) as conn:
+        with self._pool.connection() as conn:
             conn.execute(
                 """
                 INSERT INTO budget_ledger (timestamp, cost_usd, day_start)
@@ -81,7 +106,7 @@ class BudgetGuard:
     def get_daily_breakdown(self) -> dict:
         """Get detailed daily spending breakdown."""
         today_start = today_start_timestamp()
-        with sqlite3.connect(self.db_path) as conn:
+        with self._pool.connection() as conn:
             row = conn.execute(
                 """
                 SELECT
@@ -113,7 +138,7 @@ class BudgetGuard:
     def _get_today_spent(self) -> float:
         """Get total amount spent today."""
         today_start = today_start_timestamp()
-        with sqlite3.connect(self.db_path) as conn:
+        with self._pool.connection() as conn:
             row = conn.execute(
                 "SELECT SUM(cost_usd) FROM budget_ledger WHERE day_start = ?",
                 (today_start,),
@@ -150,7 +175,6 @@ class BudgetGuard:
 
 
 
-
 def _ensure_budget_table(db_path: str) -> None:
     """Create budget_ledger table if it doesn't exist."""
     import os
@@ -172,13 +196,15 @@ def _ensure_budget_table(db_path: str) -> None:
         conn.commit()
 
 
-# Lazy singleton
+# Lazy singleton with clean naming
+_budget_guard_instance: BudgetGuard | None = None
+
+
 def _get_budget_guard() -> BudgetGuard:
-    global budget_guard
-    if "budget_guard" not in globals() or budget_guard is None:
+    """Get or create the singleton budget guard instance."""
+    global _budget_guard_instance
+    if _budget_guard_instance is None:
         from tokenxygen.config import settings as _settings
         _ensure_budget_table(_settings.analytics.db_path)
-        budget_guard = BudgetGuard()
-    return budget_guard
-
-budget_guard = None  # type: ignore[assignment]
+        _budget_guard_instance = BudgetGuard()
+    return _budget_guard_instance

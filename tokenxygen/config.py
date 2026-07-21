@@ -81,6 +81,15 @@ class ProxyConfig(BaseSettings):
     # Rate limiting
     rate_limit_requests: int = 100
     rate_limit_window: float = 60.0
+    # Security headers
+    enable_hsts: bool = False  # Enable only when behind HTTPS proxy
+    hsts_max_age: int = 31536000  # 1 year
+    # CORS
+    cors_origins: list[str] = Field(default_factory=list)  # Empty = no CORS
+    # Trusted headers
+    trust_forwarded_headers: bool = False  # Set True when behind reverse proxy
+    # Redis (optional, for distributed rate limiting)
+    redis_url: str = Field(default_factory=lambda: os.environ.get("TOKENXYGEN_REDIS_URL", ""))
 
 
 class Settings(BaseSettings):

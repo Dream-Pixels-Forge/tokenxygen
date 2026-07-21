@@ -3,8 +3,6 @@
 import json
 import logging
 
-import pytest
-
 from tokenxygen.logging import (
     JSONFormatter,
     ConsoleFormatter,

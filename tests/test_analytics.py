@@ -1,11 +1,10 @@
 """Tests for the analytics module."""
 
-import tempfile
 import time
 
 import pytest
 
-from tokenxygen.analytics import Analytics, RequestRecord
+from tokenxygen.analytics import Analytics, RequestRecord, DatabasePool
 
 
 @pytest.fixture
@@ -14,7 +13,7 @@ def tmp_analytics(tmp_path):
     db_path = str(tmp_path / "test_analytics.db")
     a = Analytics.__new__(Analytics)
     a.db_path = db_path
-    a._init_db()
+    a._pool = DatabasePool(db_path)
     return a
 
 

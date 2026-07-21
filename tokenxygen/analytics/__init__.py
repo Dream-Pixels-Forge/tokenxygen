@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import sqlite3
+import threading
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass
 
 import logging
@@ -25,16 +27,18 @@ class RequestRecord:
     cost_after_usd: float
 
 
-class Analytics:
-    """Track token usage, savings, and costs."""
+class DatabasePool:
+    """Thread-safe SQLite connection pool."""
 
-    def __init__(self) -> None:
-        self.db_path = settings.analytics.db_path
+    def __init__(self, db_path: str) -> None:
+        self._path = db_path
+        self._local = threading.local()
         self._init_db()
 
     def _init_db(self) -> None:
-        with sqlite3.connect(self.db_path) as conn:
+        with self._get_connection() as conn:
             conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA busy_timeout=5000")
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS requests (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -54,40 +58,57 @@ class Analytics:
             """)
             conn.commit()
 
+    def _get_connection(self) -> sqlite3.Connection:
+        if not hasattr(self._local, 'conn') or self._local.conn is None:
+            self._local.conn = sqlite3.connect(self._path, timeout=10)
+        return self._local.conn
+
+    @contextmanager
+    def connection(self):
+        conn = self._get_connection()
+        try:
+            yield conn
+        except Exception:
+            conn.rollback()
+            raise
+
+
+class Analytics:
+    """Track token usage, savings, and costs."""
+
+    def __init__(self) -> None:
+        self.db_path = settings.analytics.db_path
+        self._pool = DatabasePool(self.db_path)
+
     def record(self, rec: RequestRecord) -> None:
-        for attempt in range(3):
-            try:
-                with sqlite3.connect(self.db_path) as conn:
-                    conn.execute(
-                        """
-                        INSERT INTO requests
-                        (timestamp, model, original_tokens, optimized_tokens, cache_hit,
-                         strategies_used, cost_before_usd, cost_after_usd)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                        """,
-                        (
-                            rec.timestamp,
-                            rec.model,
-                            rec.original_tokens,
-                            rec.optimized_tokens,
-                            rec.cache_hit,
-                            ",".join(rec.strategies_used),
-                            rec.cost_before_usd,
-                            rec.cost_after_usd,
-                        ),
-                    )
-                    conn.commit()
-                return
-            except sqlite3.OperationalError as e:
-                logger.warning("Analytics record attempt %d failed: %s", attempt + 1, e)
-                if attempt == 2:
-                    return
-                time.sleep(0.1 * (attempt + 1))
+        try:
+            with self._pool.connection() as conn:
+                conn.execute(
+                    """
+                    INSERT INTO requests
+                    (timestamp, model, original_tokens, optimized_tokens, cache_hit,
+                     strategies_used, cost_before_usd, cost_after_usd)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        rec.timestamp,
+                        rec.model,
+                        rec.original_tokens,
+                        rec.optimized_tokens,
+                        rec.cache_hit,
+                        ",".join(rec.strategies_used),
+                        rec.cost_before_usd,
+                        rec.cost_after_usd,
+                    ),
+                )
+                conn.commit()
+        except sqlite3.OperationalError as e:
+            logger.warning("Analytics record failed: %s", e)
 
     def today_summary(self) -> dict:
         """Get today's usage summary."""
         today_start = today_start_timestamp()
-        with sqlite3.connect(self.db_path) as conn:
+        with self._pool.connection() as conn:
             row = conn.execute(
                 """
                 SELECT
@@ -134,7 +155,7 @@ class Analytics:
 
     def all_time_summary(self) -> dict:
         """Get all-time usage summary."""
-        with sqlite3.connect(self.db_path) as conn:
+        with self._pool.connection() as conn:
             row = conn.execute(
                 """
                 SELECT
@@ -170,7 +191,7 @@ class Analytics:
     def daily_costs(self, days: int = 30) -> list[dict]:
         """Get daily cost breakdown for last N days."""
         cutoff = time.time() - (days * 86400)
-        with sqlite3.connect(self.db_path) as conn:
+        with self._pool.connection() as conn:
             rows = conn.execute(
                 """
                 SELECT
@@ -204,14 +225,14 @@ class Analytics:
 
 
 
+# Lazy singleton with clean naming
+_analytics_instance: Analytics | None = None
 
-# Lazy singleton
+
 def _get_analytics() -> Analytics:
-    global analytics
-    if "analytics" not in globals() or analytics is None:
+    """Get or create the singleton analytics instance."""
+    global _analytics_instance
+    if _analytics_instance is None:
         settings.ensure_dirs()
-        analytics = Analytics()
-    return analytics
-
-# Module-level accessor
-analytics = None  # type: ignore[assignment]
+        _analytics_instance = Analytics()
+    return _analytics_instance

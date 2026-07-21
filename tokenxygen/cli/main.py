@@ -9,6 +9,8 @@ from rich.panel import Panel
 from rich.table import Table
 from rich import box
 
+from tokenxygen.version import get_version as _get_version
+
 console = Console()
 
 
@@ -50,7 +52,7 @@ def serve(host: str, port: int, upstream: str | None, dashboard_port: int, json_
             f"  Router:     {'[green]ON' if settings.router.enabled else '[red]OFF'}[/]\n"
             f"  Budget:     [cyan]${settings.budget.daily_limit_usd}/day[/]\n\n"
             f"  [dim]Set OPENAI_BASE_URL=http://{host}:{port}/v1 to use with any tool[/]",
-            title="🚀 Tokenxygen v0.2",
+            title=f"🚀 Tokenxygen v{_get_version()}",
             border_style="green",
         )
     )

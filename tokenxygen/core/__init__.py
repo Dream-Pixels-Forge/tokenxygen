@@ -180,7 +180,8 @@ def count_tokens(text: str, model: str = "default") -> int:
     Uses tiktoken when available; falls back to a heuristic character-based
     estimator that is accurate within ~3-5% for typical text and code.
     """
-    ck = hashlib.sha1((model + text[:1000]).encode()).hexdigest()[:16]
+    # Use SHA-256 for cache key (not security-critical, but avoiding SHA1)
+    ck = hashlib.sha256((model + text[:1000]).encode()).hexdigest()[:16]
     if ck in _token_count_cache:
         return _token_count_cache[ck]
 
@@ -219,7 +220,7 @@ def count_message_tokens(messages: list[dict], model: str = "default") -> int:
     total = 0
     for msg in messages:
         total += 4
-        for key, value in msg.items():
+        for _key, value in msg.items():
             if isinstance(value, str):
                 total += count_tokens(value, model)
     total += 2
@@ -263,8 +264,8 @@ def truncate_to_tokens(text: str, max_tokens: int, model: str = "default") -> st
                 if len(tokens) <= max_tokens:
                     return text
                 return enc.decode(tokens[:max_tokens])  # type: ignore[union-attr]
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Token truncation failed, using fallback: %s", e)
 
     # Fallback: character-level truncation
     ratio = _CHAR_TOKEN_RATIOS.get(

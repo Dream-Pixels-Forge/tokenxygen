@@ -10,7 +10,9 @@ Strategies:
 
 from __future__ import annotations
 
+import hashlib
 import json
+import logging
 import re
 from dataclasses import dataclass, field
 
@@ -99,8 +101,7 @@ class PromptCompressor:
                             details=[plugin_result.details],
                         ))
                 except Exception as e:
-                    import logging
-                    logging.getLogger("tokenxygen").warning("Plugin %s failed: %s", strategy.name, e)
+                    logger.warning("Plugin %s failed: %s", strategy.name, e)
         except ImportError:
             pass
 
@@ -233,7 +234,7 @@ class PromptCompressor:
         # Replace repeated blocks
         compressed = []
         seen = set()
-        for i, msg in enumerate(messages):
+        for msg in messages:
             content = msg.get("content", "")
             if not isinstance(content, str) or len(content) < 100:
                 compressed.append(msg)
@@ -343,8 +344,8 @@ class PromptCompressor:
         return sum(1 for i in code_indicators if i in text) >= 2
 
     def _quick_hash(self, text: str) -> str:
-        import hashlib
-        return hashlib.md5(text.encode()).hexdigest()[:12]
+        # SHA-256 for collision resistance (not security-critical, but avoiding MD5)
+        return hashlib.sha256(text.encode()).hexdigest()[:16]
 
     def _remove_code_comments(self, code: str) -> str:
         lines = code.split("\n")
@@ -356,6 +357,9 @@ class PromptCompressor:
             result.append(line)
         return "\n".join(result)
 
+
+# Module logger
+logger = logging.getLogger("tokenxygen.compress")
 
 # Global singleton
 compressor = PromptCompressor()

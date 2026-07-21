@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import time
+import uuid
+import ipaddress
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from urllib.parse import urlparse
 
 import httpx
 from fastapi import FastAPI, Request, Response
@@ -19,12 +23,17 @@ from tokenxygen.compress import PromptCompressor, compressor
 from tokenxygen.config import settings
 from tokenxygen.core import count_tokens, estimate_cost_usd
 from tokenxygen.metrics import metrics
+from tokenxygen.ratelimit import get_rate_limiter
 from tokenxygen.router import router
+from tokenxygen.security import (
+    SecurityHeadersMiddleware,
+    AdminAuthMiddleware,
+    RequestValidationMiddleware,
+    setup_cors,
+    get_client_ip,
+)
+from tokenxygen.version import get_version as _get_version
 
-# Thread-safe in-memory rate limiter
-import threading
-_rate_limit_lock = threading.Lock()
-_rate_limit_store: dict[str, list[float]] = {}
 
 _MAX_BODY_SIZE = 10 * 1024 * 1024  # 10 MB
 
@@ -37,19 +46,69 @@ _client: httpx.AsyncClient | None = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan — manages startup/shutdown."""
-    global _client, _rate_limit_store
-    _rate_limit_store = {}
+    global _client
     yield
     if _client and not _client.is_closed:
         await _client.aclose()
     _client = None
 
+
 app = FastAPI(
     title="Tokenxygen",
     description="Universal token optimizer for coding agents — save 40-70% on LLM costs",
-    version="0.5.0",
+    version=_get_version(),
     lifespan=lifespan,
 )
+
+# Add security middleware
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(AdminAuthMiddleware)
+app.add_middleware(RequestValidationMiddleware)
+
+# Setup CORS if configured
+setup_cors(app)
+
+
+@app.middleware("http")
+async def request_logging_middleware(request: Request, call_next):
+    """Log all requests with timing and correlation ID."""
+    from tokenxygen.logging import request_id_var
+    
+    # Generate correlation ID
+    req_id = uuid.uuid4().hex[:12]
+    request_id_var.set(req_id)
+    
+    start_time = time.time()
+    
+    try:
+        response = await call_next(request)
+        duration_ms = (time.time() - start_time) * 1000
+        
+        # Add correlation ID to response headers
+        response.headers["X-Request-ID"] = req_id
+        response.headers["X-Response-Time"] = f"{duration_ms:.1f}ms"
+        
+        logger.info(
+            "%s %s → %d (%.1fms)",
+            request.method,
+            request.url.path,
+            response.status_code,
+            duration_ms,
+        )
+        
+        return response
+    except Exception as e:
+        duration_ms = (time.time() - start_time) * 1000
+        logger.error(
+            "%s %s → ERROR (%.1fms): %s",
+            request.method,
+            request.url.path,
+            duration_ms,
+            str(e),
+        )
+        raise
+    finally:
+        request_id_var.set("")
 
 
 async def get_client() -> httpx.AsyncClient:
@@ -112,7 +171,10 @@ async def _proxy_request(
     # --- Step 1: Check cache ---
     if settings.cache.enabled:
         cache = _get_cache()
-        cached = cache.get(messages, model)
+        # Run synchronous SQLite call in thread pool to avoid blocking event loop
+        cached = await asyncio.get_event_loop().run_in_executor(
+            None, lambda: cache.get(messages, model)
+        )
         if cached is not None:
             logger.info("Cache HIT for model=%s", model)
             cached["_tokenxygen"] = {
@@ -180,7 +242,9 @@ async def _proxy_request(
     if settings.cache.enabled and not stream and response.status_code == 200:
         try:
             resp_data = json.loads(response.body)
-            _get_cache().put(messages, resp_data, model, optimized_tokens)
+            await asyncio.get_event_loop().run_in_executor(
+                None, lambda: _get_cache().put(messages, resp_data, model, optimized_tokens)
+            )
         except Exception as e:
             logger.warning("Failed to cache response: %s", e)
 
@@ -189,21 +253,26 @@ async def _proxy_request(
     cost_after = estimate_cost_usd(optimized_tokens, model)
 
     if settings.analytics.enabled:
-        _get_analytics().record(
-            RequestRecord(
-                timestamp=time.time(),
-                model=model,
-                original_tokens=original_tokens,
-                optimized_tokens=optimized_tokens,
-                cache_hit=False,
-                strategies_used=strategies,
-                cost_before_usd=cost_before,
-                cost_after_usd=cost_after,
+        await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: _get_analytics().record(
+                RequestRecord(
+                    timestamp=time.time(),
+                    model=model,
+                    original_tokens=original_tokens,
+                    optimized_tokens=optimized_tokens,
+                    cache_hit=False,
+                    strategies_used=strategies,
+                    cost_before_usd=cost_before,
+                    cost_after_usd=cost_after,
+                )
             )
         )
 
     # Record to budget ledger
-    _get_budget_guard().record_cost(cost_after)
+    await asyncio.get_event_loop().run_in_executor(
+        None, lambda: _get_budget_guard().record_cost(cost_after)
+    )
 
     # Add optimization headers
     response.headers["X-Tokenxygen-Original-Tokens"] = str(original_tokens)
@@ -228,7 +297,6 @@ async def _proxy_request(
 
 def _validate_upstream_url(url: str) -> bool:
     """Validate upstream URL to prevent SSRF."""
-    from urllib.parse import urlparse
     parsed = urlparse(url)
     
     # Block local/private IPs
@@ -238,7 +306,6 @@ def _validate_upstream_url(url: str) -> bool:
     
     # Block private IP ranges
     if parsed.hostname:
-        import ipaddress
         try:
             ip = ipaddress.ip_address(parsed.hostname)
             if ip.is_private or ip.is_loopback or ip.is_link_local:
@@ -283,6 +350,10 @@ async def _forward_raw(
         if settings.proxy.api_key:
             forward_headers["Authorization"] = f"Bearer {settings.proxy.api_key}"
 
+    # Never log the Authorization header
+    safe_headers = {k: v for k, v in forward_headers.items() if k.lower() != "authorization"}
+    logger.debug("Forwarding to %s with headers: %s", upstream, list(safe_headers.keys()))
+
     req = client.build_request(
         method=method,
         url=upstream,
@@ -321,42 +392,13 @@ async def _forward_raw(
 
 def _check_rate_limit(client_ip: str) -> bool:
     """Check if client is within rate limit. Returns True if allowed."""
-    now = time.time()
-    
-    with _rate_limit_lock:
-        if client_ip not in _rate_limit_store:
-            _rate_limit_store[client_ip] = []
-
-        # Remove old entries
-        window = settings.proxy.rate_limit_window
-        _rate_limit_store[client_ip] = [
-            t for t in _rate_limit_store[client_ip]
-            if now - t < window
-        ]
-
-        if len(_rate_limit_store[client_ip]) >= settings.proxy.rate_limit_requests:
-            return False
-
-        _rate_limit_store[client_ip].append(now)
-        return True
-
-
-def _check_admin_auth(request: Request) -> bool:
-    """Check for admin API key in request header.
-
-    Returns True only if a valid admin key is provided.
-    Denies access when no admin key is configured (fail-secure default).
-    """
-    admin_key = settings.proxy.admin_key
-    if not admin_key:
-        return False  # No key configured = deny access (fail-secure)
-    provided = request.headers.get("X-Admin-Key", "")
-    return provided == admin_key
+    rate_limiter = get_rate_limiter()
+    return rate_limiter.is_allowed(client_ip)
 
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "version": "0.5.0"}
+    return {"status": "ok", "version": _get_version()}
 
 
 @app.get("/tokenxygen/stats")
@@ -391,9 +433,7 @@ async def budget_status():
 @app.post("/tokenxygen/budget/limit")
 async def set_budget_limit(request: Request):
     """Set the daily budget limit."""
-    if not _check_admin_auth(request):
-        return JSONResponse(status_code=403, content={"error": "Forbidden"})
-    
+    # Admin auth is handled by AdminAuthMiddleware
     body = await request.json()
     limit = body.get("limit_usd")
     if limit is None or not isinstance(limit, (int, float)) or limit < 0:
@@ -408,8 +448,7 @@ async def set_budget_limit(request: Request):
 @app.post("/tokenxygen/cache/clear")
 async def clear_cache(request: Request):
     """Clear the semantic cache."""
-    if not _check_admin_auth(request):
-        return JSONResponse(status_code=403, content={"error": "Forbidden"})
+    # Admin auth is handled by AdminAuthMiddleware
     
     count = _get_cache().clear()
     return {"cleared": count}
@@ -442,8 +481,8 @@ async def json_metrics():
 @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
 async def proxy_all(request: Request, path: str):
     """Catch-all proxy route — forwards any request to upstream."""
-    # Rate limiting
-    client_ip = request.client.host if request.client else "unknown"
+    # Rate limiting (using secure IP extraction)
+    client_ip = get_client_ip(request)
     if not _check_rate_limit(client_ip):
         return JSONResponse(
             status_code=429,

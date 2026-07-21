@@ -1,11 +1,8 @@
 """Tests for the semantic cache."""
 
-import tempfile
-import os
-
 import pytest
 
-from tokenxygen.cache import SemanticCache
+from tokenxygen.cache import SemanticCache, DatabasePool
 
 
 @pytest.fixture
@@ -17,7 +14,7 @@ def tmp_cache(tmp_path):
     cache.threshold = 0.92
     cache.max_entries = 1000
     cache.ttl = 86400
-    cache._init_db()
+    cache._pool = DatabasePool(db_path)
     return cache
 
 
