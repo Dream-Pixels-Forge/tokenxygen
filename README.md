@@ -14,7 +14,7 @@
 
 <p align="center"><strong>Universal token optimizer for coding agents — save 40-70% on LLM costs.</strong></p>
 
-<p align="center">Tokenxygen is a drop-in proxy that sits between your coding agent (Claude Code, Cursor, Windsurf, Codex) and LLM APIs, automatically optimizing tokens in-flight. Zero code changes required.
+<p align="center">Tokenxygen is a drop-in proxy that sits between your coding agent (Claude Code, Cursor, Windsurf, Codex) and LLM APIs, automatically optimizing tokens in-flight. Zero code changes required.</p>
 
 ```
 ┌─────────────┐     ┌────────────────┐     ┌──────────┐
@@ -237,7 +237,7 @@ settings.proxy.redis_url = "redis://localhost:6379/0"  # Distributed rate limiti
 ## 🧪 Development
 
 ```bash
-git clone https://github.com/youruser/tokenxygen
+git clone https://github.com/Dream-Pixels-Forge/tokenxygen.git
 cd tokenxygen
 pip install -e ".[dev]"
 
@@ -254,7 +254,7 @@ tokenxygen serve --reload
 - [x] **v0.2** — Smart routing, budget guards, web dashboard
 - [x] **v0.3** — Multi-provider support, plugin system
 - [x] **v0.4** — LLMLingua-2 compression, failover, load balancing
-- [x] **v0.5** — Production hardening, metrics, Docker
+- [x] **v0.5** — Production hardening, metrics, Docker, security
 - [ ] **v1.0** — Production ready (rate limiting, auth, API keys)
 
 ## 📄 License
