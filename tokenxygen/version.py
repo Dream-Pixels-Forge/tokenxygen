@@ -8,4 +8,4 @@ def get_version() -> str:
     try:
         return version("tokenxygen")
     except PackageNotFoundError:
-        return "0.5.0"
+        return "0.5.1"
